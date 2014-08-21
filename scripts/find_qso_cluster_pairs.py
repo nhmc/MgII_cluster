@@ -57,8 +57,8 @@ def add_columns(table, names, arr, indexes=None):
     columns = [Column(name=names[i], data=arr[i]) for i in range(len(names))]
     table.add_columns(columns, indexes=indexes)
 
-def match_clus_qso(clus_ra, clus_dec, clus_z, clus_id, rlos,
-                   qso_ra, qso_dec, qso_zmin_mg2, qso_zmax_mg2, qso_id, 
+def match_clus_qso(clus, rlos,
+                   qso, 
                    filename=None, rho=10):
     """find all QSO - cluster pairs with impact params < rho.
 
@@ -71,41 +71,47 @@ def match_clus_qso(clus_ra, clus_dec, clus_z, clus_id, rlos,
     """
     print 'matching'
 
-    inear = []
+    iqso = []
     iclus = []
     zclus = []
     seps_deg = []
     seps_Mpc = []
-    for i in xrange(len(clus_ra)):
-        # find impact parameter in degrees
+
+    #fig9 = plt.figure(9)
+    #ax = pl.gca()
+    #ax.cla()
+    for i in xrange(len(clus)):
+        # find impact parameter in degrees corresponding to maximum rho in proper Mpc
         # note rho is a proper distance
-        scalefac = 1. / (1. + clus_z[i])
+        scalefac = 1. / (1. + clus['z'][i])
         comoving_sep = rho / scalefac
-        if not i % 5000: print i, 'of', len(clus_ra), 'maximum rho comoving',\
+        if not i % 5000: print i, 'of', len(clus), 'maximum rho comoving',\
            comoving_sep, 'Mpc'
         angsep_deg = comoving_sep / rlos[i] * 180. / np.pi
         # throw away everything a long way away
-        c0 = between(qso_dec, clus_dec[i] -  angsep_deg,
-                     clus_dec[i] + angsep_deg)
-        qra = qso_ra[c0]
-        qdec = qso_dec[c0]
-        qzmin = qso_zmin_mg2[c0]
-        qzmax = qso_zmax_mg2[c0]
-        seps =  ang_sep(clus_ra[i], clus_dec[i], qra, qdec)
+        c0 = between(qso['dec'], clus['dec'][i] -  angsep_deg,
+                     clus['dec'][i] + angsep_deg)
+        qra = qso['ra'][c0]
+        qdec = qso['dec'][c0]
+        qzmin = qso['zmin_mg2'][c0]
+        qzmax = qso['zmax_mg2'][c0]
+        seps = ang_sep(clus['ra'][i], clus['dec'][i], qra, qdec)
         # within rho
-        close = seps < angsep_deg
+        close_angsep = seps < angsep_deg
         # with a smaller redshift than the b/g qso but large enough
         # redshift that we could detect MgII
-        goodz = between(clus_z[i], qzmin, qzmax)
-        num = (close & goodz).sum()
-        inear.extend(qso_id[close & goodz])
-        iclus.extend([clus_id[i]] * num)
-        zclus.extend([clus_z[i]] * num)
-        seps_deg.extend(seps[close & goodz])
-        seps_Mpc.extend(np.pi / 180 * rlos[i] * seps[close & goodz])
+        close_z = between(clus['z'][i], qzmin, qzmax)
+        c1 = close_angsep & close_z
+        num = c1.sum()
+        #import pdb; pdb.set_trace()
+        iqso.extend(qso['qid'][c0][c1])
+        iclus.extend([clus['id'][i]] * num)
+        zclus.extend([clus['z'][i]] * num)
+        seps_deg.extend(seps[c1])
+        seps_Mpc.extend(np.pi / 180 * rlos[i] * seps[c1])
 
     seps_Mpc_prop = np.array(seps_Mpc) / (1 + np.array(zclus))
-    qnear = np.rec.fromarrays([inear, iclus, seps_deg, seps_Mpc,
+    qnear = np.rec.fromarrays([iqso, iclus, seps_deg, seps_Mpc,
                                seps_Mpc_prop, zclus],
                               names='qid,cid,sepdeg,sepMpc_com,sepMpc_prop,cz')
 
@@ -334,9 +340,9 @@ if CALC:
     else:
         # takes about 10 min to run.
         pairs0 = match_clus_qso(
-            clus['ra'], clus['dec'], clus['z'], clus['id'], rlos.value,
-            qso['ra'], qso['dec'], qso['zmin_mg2'], qso['z'], qso['qid'], 
+            clus, rlos.value, qso, 
             filename=run_id + '/qso_cluster_pairs.fits')
+
 
     # assign a unique identifier to each pair. modifies pairs in place.
     add_columns(pairs0, ['pid'], [np.arange(len(pairs0))])
@@ -367,6 +373,16 @@ if PLOTRES:
     cond = clus['richness'] > RICHCUT
     plot_hist(run_id, clus[cond], ab['MgII'])
 
+
+if 0:
+    # check a couple of pairs
+    qso = ab['qso']
+    MgII = ab['MgII']
+    p = pairs[0]
+
+    q = qso[iqso_from_id[p['qid']]]
+    cl, = clus[clus['id'] == p['cid']]
+
 if CALC:
     # could also use BCG_Z_SPEC here.
     cids = clus['id'][cond]
@@ -391,6 +407,10 @@ if CALC:
     # z=1, only towards sightlines with a nearby cluster though) also?
 
     print 'Calculating MgII hits close to clusters, and the total z path length'
+
+    fig4 = plt.figure(4, figsize=(6,6))
+    ax = fig4.add_subplot(111)
+    
     
     for i,(qid,ind) in enumerate(indgroupby(pairs, 'qid')):
         #if not i % 1000:
@@ -401,6 +421,15 @@ if CALC:
         zmin_mg2 = q['zmin_mg2']
         zmax_mg2 = q['zmax_mg2']
 
+        cl = clus[np.in1d(clus['id'], pairs[ind]['cid'])]
+
+        if DEBUG:
+            ax.cla()
+            ax.plot(cl['ra'], cl['dec'], 'b+', ms=8, mew=2)
+            ax.plot(q['ra'], q['dec'], 'rx', ms=6, mew=2)
+            plt.show()
+            raw_input('zqso {:.3g} nclus {}'.format(q['z'], len(ind)))
+        
         # find all absorbers in this qso
         i0 = ab['MgII']['qid'].searchsorted(qid)
         i1 = ab['MgII']['qid'].searchsorted(qid, side='right')
