@@ -167,7 +167,7 @@ def get_MgII_zsearch_lim(zqso):
 
     zmax_zqso = (1 + zqso) * (1 + DV_MAX_ZSEARCH/c_kms) - 1
     zmax_red_cutoff = WMAX_MGII_ZSEARCH / w2803 - 1.
-    zmax = zmax_zqso.clip(0, redcutoff)
+    zmax = zmax_zqso.clip(0, zmax_red_cutoff)
 
     return zmin, zmax
 
@@ -465,7 +465,7 @@ if PLOTRES:
         symbols = 'soo^'
         offsets = [-0.075, -0.025, 0.025, 0.075]
     else:
-        ewbins = Bins([0.3, 0.7, 1.5, 5.0])
+        ewbins = Bins([0.0, 0.7, 1.5, 5.0])
         labels = ('0.3 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.5',
                   '1.5 < Wr$_{2796}$ < 5')
         
