@@ -31,9 +31,8 @@ CLUSCAT = 'GMBCG'
 # redshift
 CLUS_ZERR = 0.03
 
-# minimum RICHNESS
+# minimum richness (S_CLUSTER for GMBCG)
 RICHCUT = 5
-
 
 # stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
 DV_MAX_ZSEARCH = -3000.
@@ -160,14 +159,17 @@ def read_GMBCG():
     return short, iclus_from_id
 
 def get_MgII_zsearch_lim(zqso):
+    """ Find the MgII search limits for an array of QSO redshifts.
+    """
     zmin_lya = (1 + zqso) * (1 + DV_MIN_ZSEARCH/c_kms) * wlya / w2796 - 1
     zmin_blue_cutoff = WMIN_MGII_ZSEARCH / w2796 - 1
-    qso_zmin = zmin_lya.clip(zmin_blue_cutoff, 1000)
+    zmin = zmin_lya.clip(zmin_blue_cutoff, 1000)
 
-    qso_zmax = (1 + zqso) * (1 + DV_MAX_ZSEARCH/c_kms) - 1
-    qso_zmax = qso_zmax.clip(0, WMAX_MGII_ZSEARCH / w2803 - 1. )
+    zmax_zqso = (1 + zqso) * (1 + DV_MAX_ZSEARCH/c_kms) - 1
+    zmax_red_cutoff = WMAX_MGII_ZSEARCH / w2803 - 1.
+    zmax = zmax_zqso.clip(0, redcutoff)
 
-    return qso_zmin, qso_zmax
+    return zmin, zmax
 
 def read_Britt():
     MgII = readtabfits(prefix + "MgII/britt_reformatted/britt_dr7_abs.fits")
@@ -210,7 +212,6 @@ def read_Britt():
     qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid')
     arr = MgII['z_abs'], MgII['W_2796'], MgII['qid'], MgII['abid']
     MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
-    #import pdb; pdb.set_trace()
     MgII1.sort(order='qid')
     iMgII_from_id = {ind:i for i,ind in enumerate(MgII1['abid'])}
     iqso_from_id = {ind:i for i,ind in enumerate(qso1['qid'])}
@@ -454,14 +455,24 @@ if PLOTRES:
     plt.title(run_id)
     #plt.title('All clusters')
 
-    ewbins = Bins([0.5,0.7,1.0, 1.5, 5.0])
-    labels = ('0.4 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.0',
-              '1.0 < Wr$_{2796}$ < 1.5',
-              '1.5 < Wr$_{2796}$ < 5')
-
-    colors = 'gbmr'
-    symbols = 'soo^'
-    offsets = [-0.075, -0.025, 0.025, 0.075]
+    if 0:
+        ewbins = Bins([0.5, 0.7,1.0, 1.5, 5.0])
+        labels = ('0.4 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.0',
+                  '1.0 < Wr$_{2796}$ < 1.5',
+                  '1.5 < Wr$_{2796}$ < 5')
+        
+        colors = 'gbmr'
+        symbols = 'soo^'
+        offsets = [-0.075, -0.025, 0.025, 0.075]
+    else:
+        ewbins = Bins([0.3, 0.7, 1.5, 5.0])
+        labels = ('0.3 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.5',
+                  '1.5 < Wr$_{2796}$ < 5')
+        
+        colors = 'gbr'
+        symbols = 'so^'
+        offsets = [-0.075, -0.025, 0.025]
+    
 
     for i in range(len(labels)):
         dNdz, dNdz_er, n = find_dndz_vs_rho(rho, ab['MgII'], ewbins.edges[i],ewbins.edges[i+1])
@@ -475,5 +486,6 @@ if PLOTRES:
     plt.ylabel(r'$dN/dz\ (MgII)$')
     plt.minorticks_on()
     plt.ylim(-0.09, 0.5)
+    plt.xlim(-0.5, 10.5)
     plt.savefig(run_id + '/dNdz_vs_rho.png')
     show()
