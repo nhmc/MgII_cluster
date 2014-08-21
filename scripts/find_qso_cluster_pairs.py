@@ -1,11 +1,13 @@
 from __future__ import division
-from astropy.cosmology import FlatLambdaCDM, Planck13
-from matplotlib.mlab import rec_append_fields
 from barak.coord import ang_sep
 from barak.utilities import between, indgroupby, flatten, Bins
 from barak.plot import errplot, puttext
-from barak.io import readtabfits
 from astropy.table import Table
+from astropy.io import fits
+from astropy.cosmology import FlatLambdaCDM, Planck13
+import os
+import numpy as np
+import matplotlib.pyplot as plt
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
@@ -172,8 +174,8 @@ def get_MgII_zsearch_lim(zqso):
     return zmin, zmax
 
 def read_Britt():
-    MgII = readtabfits(prefix + "MgII/britt_reformatted/britt_dr7_abs.fits")
-    qso = readtabfits(prefix + "MgII/britt_reformatted/britt_dr7_qsos.fits")
+    MgII = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_abs.fits")
+    qso = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_qsos.fits")
 
     # find the minimum redshift for MgII search path
 
@@ -198,7 +200,7 @@ def read_Britt():
     is_bad = np.zeros(len(MgII), bool)
     flags = 'N D D* E E* C* C** fC mC fB mB ?'.split()
     for flag in flags:
-        is_bad |= MgII.grade_abs == flag
+        is_bad |= MgII['grade_abs'] == flag
     # If it is a detection (i/e/ not 'N'), make sure it is inside our
     # assumed MgII detection limits (also removes most ejected
     # systems)
@@ -488,4 +490,4 @@ if PLOTRES:
     plt.ylim(-0.09, 0.5)
     plt.xlim(-0.5, 10.5)
     plt.savefig(run_id + '/dNdz_vs_rho.png')
-    show()
+    plt.show()
