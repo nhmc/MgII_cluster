@@ -35,7 +35,7 @@ CLUS_ZERR = 0.03
 RICHCUT = 5
 
 # stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
-DV_MAX_ZSEARCH = -3000.
+DV_MAX_ZSEARCH = -5000.
 # start MgII z search path this many km/s if QSO Lya emission (positive means redwards)
 DV_MIN_ZSEARCH = 3000.
 
