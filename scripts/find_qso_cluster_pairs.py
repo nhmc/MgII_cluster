@@ -11,39 +11,35 @@ import matplotlib.pyplot as plt
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
-
 CALC = 1
-PLOTRES = True
+PLOTRES = 1
 DEBUG = False
-
-c_kms = 299792.458         # speed of light km/s, exact
-wlya = 1215.6701
-w2796 = 2796.3542699
-w2803 = 2803.5314853
 
 WMIN_MGII_ZSEARCH = 3800.
 WMAX_MGII_ZSEARCH = 9100.
-
 #MgIICAT = 'Zhu'
 MgIICAT = 'Britt'
 #CLUSCAT = 'Redmapper'
 CLUSCAT = 'GMBCG'
 
-# a hit is defined as a absorber within +/- CLUS_ZERR of a cluster
-# redshift
-CLUS_ZERR = 0.03
+ZMIN_CLUS = 0.3
 
+# a hit is an absorber within +/- CLUS_ZERR of a cluster redshift
+CLUS_ZERR = 0.02
 # minimum richness (S_CLUSTER for GMBCG)
 RICHCUT = 5
-
 # stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
 DV_MAX_ZSEARCH = -5000.
 # start MgII z search path this many km/s if QSO Lya emission (positive means redwards)
 DV_MIN_ZSEARCH = 3000.
 
-
 run_id = '{}_{}_rich_gt_{}_{:.3g}_{}_{}'.format(
     MgIICAT, CLUSCAT, RICHCUT, CLUS_ZERR, WMIN_MGII_ZSEARCH, WMAX_MGII_ZSEARCH)    
+
+c_kms = 299792.458         # speed of light km/s, exact
+wlya = 1215.6701
+w2796 = 2796.3542699
+w2803 = 2803.5314853
 
 print run_id
 
@@ -120,12 +116,12 @@ def match_clus_qso(clus_ra, clus_dec, clus_z, clus_id, rlos,
     return qnear
 
 
-def find_dndz_vs_rho(rho, mg2, ewrestmin, ewrestmax):
+def find_dndz_vs_rho(rho, mg2, iMgII_from_id, ewrestmin, ewrestmax):
     """ Find dNdz as a function of rho for absorbers with rest ew >
     ewrestmin given a list of results in rho."""
     res = []
     for irho,r in enumerate(rho):
-        print 'bin', irho
+        #print 'bin', irho
         # absorbers in this bin
         i = np.array([iMgII_from_id[ind] for ind in r['abid']], dtype=int)
         mg2_ = mg2[i]
@@ -142,23 +138,26 @@ def read_redmapper():
     d = fits.getdata(prefix + 'clusters/redmapper/'
                      'dr8_run_redmapper_v5.10_lgt5_catalog.fits')
 
-    short = np.rec.fromarrays([d.RA, d.DEC, d.Z_LAMBDA, d.Z_LAMBDA_E,
+    d1 = np.rec.fromarrays([d.RA, d.DEC, d.Z_LAMBDA, d.Z_LAMBDA_E,
                                d.LAMBDA_CHISQ, d.MEM_MATCH_ID],
                               names='ra,dec,z,zer,richness,id')
+    d2 = d1[d1.z > ZMIN_CLUS]
 
-    iclus_from_id = {idval:i for i,idval in enumerate(short.id)}
-    return short, iclus_from_id
+    iclus_from_id = {idval:i for i,idval in enumerate(d2.id)}
+    return d2, iclus_from_id
 
 def read_GMBCG():
     d = Table.read(prefix + 'clusters/GMBCG_SDSS_DR7/GMBCG_SDSS_DR7_PUB.fit')
 
-    short = np.rec.fromarrays([d['RA'], d['DEC'], d['PHOTOZ'], d['PHOTOZ_ERR'],
+    d1 = np.rec.fromarrays([d['RA'], d['DEC'], d['PHOTOZ'], d['PHOTOZ_ERR'],
                                d['S_CLUSTER'], d['OBJID']],
                               names='ra,dec,z,zer,richness,id')
 
-    iclus_from_id = {idval:i for i,idval in enumerate(short.id)}
+    d2 = d1[d1.z > ZMIN_CLUS]
 
-    return short, iclus_from_id
+    iclus_from_id = {idval:i for i,idval in enumerate(d2.id)}
+
+    return d2, iclus_from_id
 
 def get_MgII_zsearch_lim(zqso):
     """ Find the MgII search limits for an array of QSO redshifts.
@@ -171,11 +170,25 @@ def get_MgII_zsearch_lim(zqso):
     zmax_red_cutoff = WMAX_MGII_ZSEARCH / w2803 - 1.
     zmax = zmax_zqso.clip(0, zmax_red_cutoff)
 
+    #import pdb; pdb.set_trace()
+    cond = zmax > zmin
+    zmax[~cond] = zmin[~cond] 
     return zmin, zmax
 
 def read_Britt():
     MgII = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_abs.fits")
-    qso = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_qsos.fits")
+    qso0 = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_qsos.fits")
+
+    # remove QSOs
+    qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['z'])
+
+    cond = (qso_zmax - qso_zmin) > 0.05
+
+    print len(qso0), 'QSOs'
+    print 'keeping {} QSOs with MgII z path search length > 0.05'.format(cond.sum())
+    qso = qso0[cond]
+    qso_zmin = qso_zmin[cond]
+    qso_zmax = qso_zmax[cond]
 
     # find the minimum redshift for MgII search path
 
@@ -201,18 +214,16 @@ def read_Britt():
     flags = 'N D D* E E* C* C** fC mC fB mB ?'.split()
     for flag in flags:
         is_bad |= MgII['grade_abs'] == flag
-    # If it is a detection (i/e/ not 'N'), make sure it is inside our
-    # assumed MgII detection limits (also removes most ejected
-    # systems)
-    MgII0 = MgII[~is_bad]
 
-    qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso['z'])
+    is_bad |= MgII['W_2796'] == 0
+
+    MgII0 = MgII[~is_bad]
 
     # add in DR9 too later? (not as many as DR7). Need to check there
     # is no overlap in QSOs first.
     arr = qso['ra'], qso['dec'], qso['z'], qso_zmin, qso_zmax, qso['ID']
-    qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid')
-    arr = MgII['z_abs'], MgII['W_2796'], MgII['qid'], MgII['abid']
+    qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2,qid')
+    arr = MgII0['z_abs'], MgII0['W_2796'], MgII0['qid'], MgII0['abid']
     MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
     MgII1.sort(order='qid')
     iMgII_from_id = {ind:i for i,ind in enumerate(MgII1['abid'])}
@@ -248,7 +259,7 @@ def read_zhu():
     return dict(MgII=MgII1, qso=qso1), iqso_from_id, iMgII_from_id
 
 def plot_hist(run_id, clus, MgII):
-    zbin = Bins(np.arange(-0.1, 1.2, 0.1))
+    zbin = Bins(np.arange(-0.1, 1.2, 0.025))
     fig = plt.figure(1, figsize=(4.5,4.5))
     fig.clf()
     ax = plt.gca()
@@ -271,23 +282,23 @@ if CALC:
     if CLUSCAT == 'Redmapper':
         clus, iclus_from_id = read_redmapper()
 
-        if os.path.exists('redmapper_dc.sav'):
-            rlos = loadobj('redmapper_dc.sav')
+        if os.path.exists('dc_redmapper.sav'):
+            rlos = loadobj('dc_redmapper.sav')
             assert len(rlos) == len(clus)
         else:
             # this takes about 5 min to run
             rlos = cosmo.comoving_distance(clus.z)
-            saveobj('redmapper_dc.sav', rlos)
+            saveobj('dc_redmapper.sav', rlos)
     elif CLUSCAT == 'GMBCG':
         clus, iclus_from_id = read_GMBCG()
-        if os.path.exists('GMBCG_dc.sav'):
-            rlos = loadobj('GMBCG_dc.sav')
+        if os.path.exists('dc_GMBCG.sav'):
+            rlos = loadobj('dc_GMBCG.sav')
             assert len(rlos) == len(clus)
         else:
             print 'Calculating Dc'
             # this takes about 5 min to run
             rlos = cosmo.comoving_distance(clus.z)
-            saveobj('GMBCG_dc.sav', rlos)
+            saveobj('dc_GMBCG.sav', rlos)
     else:
         raise ValueError
 
@@ -352,8 +363,6 @@ if 0:
     plt.show()
 
 
-
-
 if PLOTRES:
     cond = clus['richness'] > RICHCUT
     plot_hist(run_id, clus[cond], ab['MgII'])
@@ -375,11 +384,13 @@ if CALC:
     # total zpath over all pairs
 
     rbin = Bins(np.arange(0, 12, 1))
-    rho = [dict(zpathlim=[], abid=[], pid=[], zpathtot=0) for
+    rho = [dict(zpathlim=[], abid=[], pid=[], cid=[], qid=[], zpathtot=0) for
            i in range(len(rbin.cen))]
 
     # find tot zpath (including both field and cluster paths up to
     # z=1, only towards sightlines with a nearby cluster though) also?
+
+    print 'Calculating MgII hits close to clusters, and the total z path length'
     
     for i,(qid,ind) in enumerate(indgroupby(pairs, 'qid')):
         #if not i % 1000:
@@ -396,9 +407,10 @@ if CALC:
         mg2 = ab['MgII'][i0:i1]
         # get the MgII detection limits from the first absorber entry
 
-        print '{}: qso ID {}, {} MgII, {}, zmin {:.2f}, zmax {:.2f}, zqso {:.2f}'.format(
-            i+1, qid, len(mg2), mg2['z'], zmin_mg2, zmax_mg2, q['z'])
-        print 'f/g clus', len(ind)
+        if DEBUG:
+            print '{}: qso ID {}, {} MgII, {}, zmin {:.2f}, zmax {:.2f}, zqso {:.2f}'.format(
+                i+1, qid, len(mg2), mg2['z'], zmin_mg2, zmax_mg2, q['z'])
+            print 'f/g clus', len(ind)
         #raw_input('  About to loop of pairs for this sightline...')
         # for each cluster near this sightline
         for p in pairs[ind]:
@@ -427,7 +439,9 @@ if CALC:
             ibin = int(p['sepMpc_prop'] / rbin.width[0])
             rho[ibin]['zpathlim'].append((zmin, zmax))
             rho[ibin]['abid'].append(closeids)
+            rho[ibin]['cid'].append(p['cid'])
             rho[ibin]['pid'].append(p['pid'])
+            rho[ibin]['qid'].append(p['qid'])
 
 if CALC:
     # count the total redshift path per bin, and the total bumber 
@@ -477,7 +491,8 @@ if PLOTRES:
     
 
     for i in range(len(labels)):
-        dNdz, dNdz_er, n = find_dndz_vs_rho(rho, ab['MgII'], ewbins.edges[i],ewbins.edges[i+1])
+        dNdz, dNdz_er, n = find_dndz_vs_rho(rho, ab['MgII'], iMgII_from_id,
+                                            ewbins.edges[i],ewbins.edges[i+1])
         errplot(rbin.cen + offsets[i], dNdz, dNdz_er, ax=ax,
                 fmt=colors[i]+symbols[i], label=labels[i])
         for j in range(len(n)):
