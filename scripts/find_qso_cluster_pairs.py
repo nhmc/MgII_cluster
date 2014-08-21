@@ -32,7 +32,7 @@ CLUSCAT = 'GMBCG'
 CLUS_ZERR = 0.03
 
 # minimum RICHNESS
-RICHCUT = 10
+RICHCUT = 5
 
 
 # stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
@@ -250,12 +250,14 @@ def plot_hist(run_id, clus, MgII):
     fig.clf()
     ax = plt.gca()
     vals,_ = np.histogram(clus.z, bins=zbin.edges)
-    ax.plot(zbin.cen, np.log10(vals), 'r', lw=2, ls='steps-mid',
+    y = np.where(vals == 0, -0.1, np.log10(vals))
+    ax.plot(zbin.cen, y, 'r', lw=2, ls='steps-mid',
             label='clusters (n=%i)' % len(clus), zorder=10)
     vals,_ = np.histogram(MgII['z'], bins=zbin.edges)
     label = 'MgII (n={})'.format(len(MgII))
-    ax.plot(zbin.cen, vals, 'b',lw=2, ls='steps-mid', label=label)
-    ax.set_xlabel('$\mathrm{Redshift}')
+    y = np.where(vals == 0, -0.1, np.log10(vals))
+    ax.plot(zbin.cen, y, 'b',lw=2, ls='steps-mid', label=label)
+    ax.set_xlabel('$\mathrm{Redshift}$')
     ax.set_ylabel('$\log_{10}(\mathrm{Number})$')
     #ax.set_ylim(-0.2, 1.8)
     plt.legend(frameon=0, fontsize=8)
@@ -309,20 +311,18 @@ if 0:
     plt.hist(ab['MgII'].Wr, log=True, bins=np.arange(0, 20, 0.1))
 
 
-
-
 if CALC:
     qso = ab['qso']
     # find qso sightlines that are within 10 proper Mpc of a foreground cluster.
 
-    if os.path.exists('qso_cluster_pairs.fits'):
-        pairs0 = Table.read('qso_cluster_pairs.fits')
+    if os.path.exists(run_id + '/qso_cluster_pairs.fits'):
+        pairs0 = Table.read(run_id + '/qso_cluster_pairs.fits')
     else:
         # takes about 10 min to run.
         pairs0 = match_clus_qso(
             clus['ra'], clus['dec'], clus['z'], clus['id'], rlos.value,
             qso['ra'], qso['dec'], qso['zmin_mg2'], qso['z'], qso['qid'], 
-            filename='qso_cluster_pairs.fits')
+            filename=run_id + '/qso_cluster_pairs.fits')
 
     # assign a unique identifier to each pair. modifies pairs in place.
     add_columns(pairs0, ['pid'], [np.arange(len(pairs0))])
