@@ -50,6 +50,7 @@ if not os.path.exists(run_id):
     os.mkdir(run_id)
 
 prefix = '/Users/ncrighton/Projects/qso_clusters/'
+#prefix = '/media/ntejos/disk1/catalogs/'
 
 def add_columns(table, names, arr, indexes=None):
     from astropy.table import Column
@@ -145,6 +146,8 @@ def find_dndz_vs_rho(rho, mg2, iMgII_from_id, ewrestmin, ewrestmax):
 def read_redmapper():
     d = fits.getdata(prefix + 'clusters/redmapper/'
                      'dr8_run_redmapper_v5.10_lgt5_catalog.fits')
+    #d = fits.getdata(prefix + 'clusters/redmapper/DR8/'
+    #                 'dr8_run_redmapper_v5.10_lgt5_catalog.fit')
 
     z = d['Z_LAMBDA']
     c0 = d['BCG_SPEC_Z'] != -1 
@@ -278,6 +281,10 @@ def read_Britt():
 def read_zhu():
     MgII = fits.getdata(prefix + '/MgII/Expanded_SDSS_DR7_107.fits')
     qso0 = fits.getdata(prefix + '/MgII/QSObased_Expanded_SDSS_DR7_107.fits')
+
+    #MgII = fits.getdata(prefix + '/MgII/JHU-SDSS/Expanded_SDSS_DR7_107.fits')
+    #qso0 = fits.getdata(prefix + '/MgII/JHU-SDSS/QSObased_Expanded_SDSS_DR7_107.fits')
+
 
     # find the minimum redshift for MgII search path
     qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['ZQSO'])
@@ -552,15 +559,13 @@ if PLOTRES:
         labels = ('0.4 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.0',
                   '1.0 < Wr$_{2796}$ < 1.5',
                   '1.5 < Wr$_{2796}$ < 5')
-        
         colors = 'gbmr'
         symbols = 'soo^'
         offsets = [-0.075, -0.025, 0.025, 0.075]
     else:
-        ewbins = Bins([0.0, 0.7, 1.5, 5.0])
-        labels = ('0.3 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.5',
+        ewbins = Bins([0.0, 1.0, 1.5, 5.0])
+        labels = ('0.3 < Wr$_{2796}$ < 1.0',   '0.7 < Wr$_{2796}$ < 1.5',
                   '1.5 < Wr$_{2796}$ < 5')
-        
         colors = 'gbr'
         symbols = 'so^'
         offsets = [-0.075, -0.025, 0.025]
