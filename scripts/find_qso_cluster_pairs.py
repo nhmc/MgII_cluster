@@ -11,14 +11,14 @@ import matplotlib.pyplot as plt
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
-CALC = 1
-PLOTRES = 1
+CALC = 0
+PLOTRES = 0
 DEBUG = False
 
 WMIN_MGII_ZSEARCH = 3800.
 WMAX_MGII_ZSEARCH = 9100.
-#MgIICAT = 'Zhu'
-MgIICAT = 'Britt'
+MgIICAT = 'Zhu'
+#MgIICAT = 'Britt'
 CLUSCAT = 'Redmapper'
 #CLUSCAT = 'GMBCG'
 
@@ -151,13 +151,15 @@ def read_redmapper():
     z[c0] = d['BCG_SPEC_Z'][c0]
     zer = d['Z_LAMBDA_E']
     if CLUS_ZERR == 'erphotz':
-        # 0.007 corresponds to a velocity dispersion of 1400 km/s at z=0.5 
-        zer[c0] = 0.007
+        zer[c0] = 0.001
     elif isinstance(CLUS_ZERR, float):
         zer[:] = CLUS_ZERR
     else:
         raise ValueError
-    
+
+    # 0.005 corresponds to a velocity dispersion of 937 km/s at z=0.6 
+    zer = np.where(zer < 0.005, 0.005, zer)
+
     if os.path.exists('dc_redmapper.sav'):
         rlos = loadobj('dc_redmapper.sav')
         assert len(rlos) == len(d)
@@ -167,9 +169,12 @@ def read_redmapper():
         rlos = cosmo.comoving_distance(z)
         saveobj('dc_redmapper.sav', rlos)
 
+    # in solar masses, conversion from Rykoff 2013 appendix B.
+    m200 = 10**14 * (d['LAMBDA_CHISQ']/60.)**1.08 * np.exp(1.72)
+
     d1 = np.rec.fromarrays([d.RA, d.DEC, z, zer,
-                               d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value],
-                              names='ra,dec,z,zer,richness,id,rlos')
+                               d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value, m200],
+                              names='ra,dec,z,zer,richness,id,rlos,mass')
     d2 = d1[d1.z > ZMIN_CLUS]
     d3 = d2[between(d2.richness, MINRICH, MAXRICH)]
 
@@ -272,16 +277,17 @@ def read_Britt():
 
 def read_zhu():
     MgII = fits.getdata(prefix + '/MgII/Expanded_SDSS_DR7_107.fits')
-    qso = fits.getdata(prefix + '/MgII/QSObased_Expanded_SDSS_DR7_107.fits')
+    qso0 = fits.getdata(prefix + '/MgII/QSObased_Expanded_SDSS_DR7_107.fits')
 
     # find the minimum redshift for MgII search path
+    qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['ZQSO'])
+    cond = (qso_zmax - qso_zmin) > 0.05
 
-    zmin_lya = (1 + qso.ZQSO) * (1 + DV_MIN_ZSEARCH/c_kms) * wlya / w2796 - 1
-    zmin_blue_cutoff = WMIN_MGII_ZSEARCH / w2796 - 1
-    qso_zmin = zmin_lya.clip(zmin_blue_cutoff, 1000)
-
-    qso_zmax = (1 + qso.ZQSO) * (1 + DV_MAX_ZSEARCH/c_kms) - 1
-    qso_zmax.clip(0, WMAX_MGII_ZSEARCH / w2803 - 1. )
+    cond &= qso_zmin < 0.9
+    
+    qso = qso0[cond]
+    qso_zmin = qso_zmin[cond]
+    qso_zmax = qso_zmax[cond]
 
     # add in DR9 too later? (not as many as DR7). Need to check there
     # is no overlap in QSOs first.
@@ -314,6 +320,38 @@ def plot_hist(run_id, clus, MgII):
     ax.set_xlim(0.25, 0.9)
     plt.legend(frameon=0, fontsize=8)
     plt.savefig(run_id + '/zhist.png', dpi=200)
+
+
+if 1:
+    clus,_ = read_redmapper()
+    britt,_,_ = read_Britt()
+    zhu,_,_ = read_zhu()
+
+    bins = np.arange(-0.1, 1.2, 0.1)
+    cbins = 0.5*(bins[:-1] + bins[1:])
+    fig = plt.figure(1)
+    fig.clf()
+    ax = plt.gca()
+    #vals,bins = np.histogram(C['Planck'].REDSHIFT, bins=bins)
+    #ax.plot(cbins,vals/vals.max(), 'b',lw=2,ls='steps-mid',
+    #        label='Planck (n=%i)' % len(C['Planck']),)
+    vals,bins = np.histogram(clus['z'], bins=bins)
+    y = np.where(vals > 0, np.log10(vals), -0.1)
+    ax.plot(cbins, y, 'r', lw=2, ls='steps-mid',
+            label='redmapper (n=%i)' % len(clus), zorder=10)
+    vals,bins = np.histogram(britt['MgII']['z'], bins=bins)
+    y = np.where(vals > 0, np.log10(vals), -0.1)
+    ax.plot(cbins, y, 'g',lw=2, ls='steps-mid',
+            label='Britt MgII (n=%i)' % len(britt['MgII']))
+    vals,bins = np.histogram(zhu['MgII']['z'], bins=bins)
+    y = np.where(vals > 0, np.log10(vals), -0.1)
+    ax.plot(cbins, y, 'k',lw=2, drawstyle='steps-mid',
+            label='Zhu dr7 MgII(n=%i)' % len(zhu['MgII']))
+
+    ax.set_xlabel('Redshift')
+    ax.set_xlim(0.2, 1.5)
+    plt.legend(frameon=0, fontsize=8)
+    plt.show()
 
 
 if CALC:
