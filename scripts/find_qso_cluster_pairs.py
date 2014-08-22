@@ -2,6 +2,7 @@ from __future__ import division
 from barak.coord import ang_sep
 from barak.utilities import between, indgroupby, flatten, Bins
 from barak.plot import errplot, puttext
+from barak.io import loadobj,saveobj
 from astropy.table import Table
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM, Planck13
@@ -284,7 +285,6 @@ def read_zhu():
 
     #MgII = fits.getdata(prefix + '/MgII/JHU-SDSS/Expanded_SDSS_DR7_107.fits')
     #qso0 = fits.getdata(prefix + '/MgII/JHU-SDSS/QSObased_Expanded_SDSS_DR7_107.fits')
-
 
     # find the minimum redshift for MgII search path
     qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['ZQSO'])
