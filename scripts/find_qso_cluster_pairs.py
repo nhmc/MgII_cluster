@@ -1,7 +1,8 @@
 from __future__ import division
 from barak.coord import ang_sep
 from barak.utilities import between, indgroupby, flatten, Bins
-from barak.plot import errplot, puttext
+from barak.plot import errplot, puttext, make_log_xlabels, \
+     make_log_ylabels
 from barak.io import loadobj,saveobj
 from astropy.table import Table
 from astropy.io import fits
@@ -12,8 +13,8 @@ import matplotlib.pyplot as plt
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
-CALC = 0
-PLOTRES = 0
+CALC = 1
+PLOTRES = 1
 DEBUG = False
 
 WMIN_MGII_ZSEARCH = 3800.
@@ -23,21 +24,31 @@ MgIICAT = 'Zhu'
 CLUSCAT = 'Redmapper'
 #CLUSCAT = 'GMBCG'
 
-ZMIN_CLUS = 0.3
+ZMIN_CLUS = 0.33
 
 # a hit is an absorber within +/- CLUS_ZERR of a cluster redshift
 #CLUS_ZERR = 0.03
 CLUS_ZERR = 'erphotz'
 # minimum richness (S_CLUSTER for GMBCG)
-MAXRICH = 35
-MINRICH = 15
+#MAXRICH = 1000
+#MINRICH = 10
+
+log10MINMASS = 13.6
+log10MAXMASS = 20.0
+
+# 10^13.6, 10^13.8, 10^14, 10^14.2, 10^14.4, 10^14.4 and above have all
+# roughly equal numebrs of clusters.
+
 # stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
 DV_MAX_ZSEARCH = -5000.
 # start MgII z search path this many km/s if QSO Lya emission (positive means redwards)
 DV_MIN_ZSEARCH = 3000.
 
-run_id = '{}_{}_rich_{}-{}_{}_{}_{}'.format(
-    MgIICAT, CLUSCAT, MINRICH, MAXRICH, CLUS_ZERR, WMIN_MGII_ZSEARCH, WMAX_MGII_ZSEARCH)    
+run_id = 'mass_{}-{}_{}'.format(log10MINMASS, log10MAXMASS, CLUS_ZERR)
+
+# run_id = '{}_{}_rich_{}-{}_{}_{}_{}'.format(
+#     MgIICAT, CLUSCAT, MINRICH, MAXRICH, CLUS_ZERR, WMIN_MGII_ZSEARCH, WMAX_MGII_ZSEARCH)    
+
 
 c_kms = 299792.458         # speed of light km/s, exact
 wlya = 1215.6701
@@ -47,7 +58,7 @@ w2803 = 2803.5314853
 print run_id
 
 if not os.path.exists(run_id):
-    print 'creating directory', run_id, '/'
+    print 'creating directory', run_id
     os.mkdir(run_id)
 
 prefix = '/Users/ncrighton/Projects/qso_clusters/'
@@ -61,7 +72,7 @@ def add_columns(table, names, arr, indexes=None):
     columns = [Column(name=names[i], data=arr[i]) for i in range(len(names))]
     table.add_columns(columns, indexes=indexes)
 
-def match_clus_qso(clus, qso, filename=None, rho=10):
+def match_clus_qso(clus, qso, filename=None, rho=20):
     """find all QSO - cluster pairs with impact params < rho.
 
     clus['ra'], clus['dec'], clus['z'], clus['id'], clus['rlos']
@@ -114,10 +125,16 @@ def match_clus_qso(clus, qso, filename=None, rho=10):
         seps_deg.extend(seps[c1])
         seps_Mpc.extend(np.pi / 180 * clus['rlos'][i] * seps[c1])
 
-    seps_Mpc_prop = np.array(seps_Mpc) / (1 + np.array(zclus))
-    qnear = np.rec.fromarrays([iqso, iclus, seps_deg, seps_Mpc,
-                               seps_Mpc_prop, zclus, zclus_er],
-                              names='qid,cid,sepdeg,sepMpc_com,sepMpc_prop,cz,cz_er')
+    seps_Mpc = np.array(seps_Mpc)
+    seps_Mpc_prop = seps_Mpc / (1 + np.array(zclus))
+    logsepMpc_prop = np.log10(seps_Mpc_prop)
+    logsepMpc_com = np.log10(seps_Mpc)
+    names = ('qid cid sepdeg sepMpc_com sepMpc_prop '
+             'logsepMpc_com logsepMpc_prop cz cz_er').split()
+    qnear = np.rec.fromarrays(
+        [iqso, iclus, seps_deg, seps_Mpc, seps_Mpc_prop,
+         logsepMpc_com, logsepMpc_prop, zclus, zclus_er],
+        names=names)
 
     qnear = Table(qnear)
     if filename is not None:
@@ -143,6 +160,10 @@ def find_dndz_vs_rho(rho, mg2, iMgII_from_id, ewrestmin, ewrestmax):
     print nabs
     return dNdz, dNdz_err, nabs
 
+def m200_from_richness(lam):
+    """ Find m200 in solar masses from the richness lambda in the
+    redmapper catalogue. """
+    return 10**14 * (lam/60.)**1.08 * np.exp(1.72)
 
 def read_redmapper():
     d = fits.getdata(prefix + 'clusters/redmapper/'
@@ -174,37 +195,18 @@ def read_redmapper():
         saveobj('dc_redmapper.sav', rlos)
 
     # in solar masses, conversion from Rykoff 2013 appendix B.
-    m200 = 10**14 * (d['LAMBDA_CHISQ']/60.)**1.08 * np.exp(1.72)
+    m200 = m200_from_richness(d['LAMBDA_CHISQ'])
 
     d1 = np.rec.fromarrays([d.RA, d.DEC, z, zer,
-                               d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value, m200],
-                              names='ra,dec,z,zer,richness,id,rlos,mass')
+                            d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value, m200],
+                           names='ra,dec,z,zer,richness,id,rlos,m200')
     d2 = d1[d1.z > ZMIN_CLUS]
-    d3 = d2[between(d2.richness, MINRICH, MAXRICH)]
+    d3 = d2[between(np.log10(d2['m200']), log10MINMASS, log10MAXMASS)]
+    #d3 = d2[between(d2['richness'], MINRICH, MAXRICH)]
 
     iclus_from_id = {idval:i for i,idval in enumerate(d3.id)}
     return d3, iclus_from_id
 
-def read_GMBCG():
-    d = Table.read(prefix + 'clusters/GMBCG_SDSS_DR7/GMBCG_SDSS_DR7_PUB.fit')
-    if os.path.exists('dc_GMBCG.sav'):
-        rlos = loadobj('dc_GMBCG.sav')
-        assert len(rlos) == len(clus)
-    else:
-        print 'Calculating Dc'
-        # this takes about 5 min to run
-        rlos = cosmo.comoving_distance(d['PHOTOZ'])
-        saveobj('dc_GMBCG.sav', rlos)
-
-    d1 = np.rec.fromarrays([d['RA'], d['DEC'], d['PHOTOZ'], d['PHOTOZ_ERR'],
-                               d['S_CLUSTER'], d['OBJID'], rlos.value],
-                              names='ra,dec,z,zer,richness,id,rlos')
-
-    d2 = d1[d1.z > ZMIN_CLUS]
-
-    iclus_from_id = {idval:i for i,idval in enumerate(d2.id)}
-
-    return d2, iclus_from_id
 
 def get_MgII_zsearch_lim(zqso):
     """ Find the MgII search limits for an array of QSO redshifts.
@@ -217,66 +219,9 @@ def get_MgII_zsearch_lim(zqso):
     zmax_red_cutoff = WMAX_MGII_ZSEARCH / w2803 - 1.
     zmax = zmax_zqso.clip(0, zmax_red_cutoff)
 
-    #import pdb; pdb.set_trace()
     cond = zmax > zmin
     zmax[~cond] = zmin[~cond] 
     return zmin, zmax
-
-def read_Britt():
-    MgII = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_abs.fits")
-    qso0 = Table.read(prefix + "MgII/britt_reformatted/britt_dr7_qsos.fits")
-
-    # remove QSOs
-    qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['z'])
-
-    cond = (qso_zmax - qso_zmin) > 0.05
-
-    print len(qso0), 'QSOs'
-    print 'keeping {} QSOs with MgII z path search length > 0.05'.format(cond.sum())
-    qso = qso0[cond]
-    qso_zmin = qso_zmin[cond]
-    qso_zmax = qso_zmax[cond]
-
-    # find the minimum redshift for MgII search path
-
-    # throw out anything with a grade of "?", "E", "E*", "D", and
-    # "D*".  A grade "N" means no absorbers are detected for a given
-    # quasar sightline. Also throw out anything outside the detection limits.
-
-    # Just toss out the absorption systems with the following grades...
-    # [E,E*,D,D*,C*,C**,fC,mC,fB,mB. and '?']  Also, I haven't made any
-    # cuts on absorption redshift this time.  So, this catalog contains
-    # absorbers detected with CIV at z>2.. hence the large number of
-    # absorbers with MgII equivalent widths of zero.  I thought that might
-    # be confusing.  Also, this catalog contains absorption intrinsic to
-    # the quasar, so those will have to be removed from the analysis, too.
-
-    # As a side-note, systems with a 'c' prefix in the grade (e.g.,
-    # cA,cB,cC) denote low-redshift systems identified with CaII.  These
-    # have a worse contamination rate, but they might be useful for
-    # boosting the low-redshift absorption sample size.  The ones that are
-    # real should be associated with strong MgII absorption.
-
-    is_bad = np.zeros(len(MgII), bool)
-    flags = 'N D D* E E* C* C** fC mC fB mB ?'.split()
-    for flag in flags:
-        is_bad |= MgII['grade_abs'] == '{:3s}'.format(flag)
-
-    is_bad |= MgII['W_2796'] == 0
-
-    MgII0 = MgII[~is_bad]
-
-    arr = qso['ra'], qso['dec'], qso['z'], qso_zmin, qso_zmax, qso['ID']
-    qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2,qid')
-    arr = MgII0['z_abs'], MgII0['W_2796'], MgII0['qid'], MgII0['abid']
-    MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
-    MgII2 = MgII1[MgII1.z < 1]
-
-    MgII2.sort(order='qid')
-    iMgII_from_id = {ind:i for i,ind in enumerate(MgII2['abid'])}
-    iqso_from_id = {ind:i for i,ind in enumerate(qso1['qid'])}
-
-    return dict(MgII=MgII2, qso=qso1), iqso_from_id, iMgII_from_id
 
 
 def read_zhu():
@@ -286,8 +231,10 @@ def read_zhu():
     #MgII = fits.getdata(prefix + '/MgII/JHU-SDSS/Expanded_SDSS_DR7_107.fits')
     #qso0 = fits.getdata(prefix + '/MgII/JHU-SDSS/QSObased_Expanded_SDSS_DR7_107.fits')
 
-    # find the minimum redshift for MgII search path
+    # find the min & max redshift for MgII search path
     qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['ZQSO'])
+
+    # remove qsos with tiny z search paths
     cond = (qso_zmax - qso_zmin) > 0.05
 
     cond &= qso_zmin < 0.9
@@ -302,14 +249,14 @@ def read_zhu():
     qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid')
     arr = [MgII.ZABS, MgII.REW_MGII_2796, MgII.INDEX_QSO, np.arange(len(MgII))]
     MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
-    #import pdb; pdb.set_trace()
     MgII1.sort(order='qid')
+
     iMgII_from_id = {ind:i for i,ind in enumerate(MgII1['abid'])}
     iqso_from_id = {ind:i for i,ind in enumerate(qso1['qid'])}
 
     return dict(MgII=MgII1, qso=qso1), iqso_from_id, iMgII_from_id
 
-def plot_hist(run_id, clus, MgII):
+def plot_hist(run_id, clus, MgII, title):
     zbin = Bins(np.arange(-0.1, 1.2, 0.025))
     fig = plt.figure(1, figsize=(4.5,4.5))
     fig.clf()
@@ -326,57 +273,14 @@ def plot_hist(run_id, clus, MgII):
     ax.set_ylabel('$\log_{10}(\mathrm{Number})$')
     ax.set_xlim(0.25, 0.9)
     plt.legend(frameon=0, fontsize=8)
+    plt.title(title)
     plt.savefig(run_id + '/zhist.png', dpi=200)
 
 
+
 if 1:
-    clus,_ = read_redmapper()
-    britt,_,_ = read_Britt()
-    zhu,_,_ = read_zhu()
-
-    bins = np.arange(-0.1, 1.2, 0.1)
-    cbins = 0.5*(bins[:-1] + bins[1:])
-    fig = plt.figure(1)
-    fig.clf()
-    ax = plt.gca()
-    #vals,bins = np.histogram(C['Planck'].REDSHIFT, bins=bins)
-    #ax.plot(cbins,vals/vals.max(), 'b',lw=2,ls='steps-mid',
-    #        label='Planck (n=%i)' % len(C['Planck']),)
-    vals,bins = np.histogram(clus['z'], bins=bins)
-    y = np.where(vals > 0, np.log10(vals), -0.1)
-    ax.plot(cbins, y, 'r', lw=2, ls='steps-mid',
-            label='redmapper (n=%i)' % len(clus), zorder=10)
-    vals,bins = np.histogram(britt['MgII']['z'], bins=bins)
-    y = np.where(vals > 0, np.log10(vals), -0.1)
-    ax.plot(cbins, y, 'g',lw=2, ls='steps-mid',
-            label='Britt MgII (n=%i)' % len(britt['MgII']))
-    vals,bins = np.histogram(zhu['MgII']['z'], bins=bins)
-    y = np.where(vals > 0, np.log10(vals), -0.1)
-    ax.plot(cbins, y, 'k',lw=2, drawstyle='steps-mid',
-            label='Zhu dr7 MgII(n=%i)' % len(zhu['MgII']))
-
-    ax.set_xlabel('Redshift')
-    ax.set_xlim(0.2, 1.5)
-    plt.legend(frameon=0, fontsize=8)
-    plt.show()
-
-
-if CALC:
-    if CLUSCAT == 'Redmapper':
-        clus, iclus_from_id = read_redmapper()
-
-    elif CLUSCAT == 'GMBCG':
-        clus, iclus_from_id = read_GMBCG()
-    else:
-        raise ValueError
-
-if CALC:
-    if MgIICAT == 'Zhu':
-        ab, iqso_from_id, iMgII_from_id = read_zhu()
-    elif MgIICAT == 'Britt':
-        ab, iqso_from_id, iMgII_from_id = read_Britt()
-    else:
-        raise ValueError
+    clus, iclus_from_id = read_redmapper()
+    ab, iqso_from_id, iMgII_from_id = read_zhu()
 
 if 0:
     # Compare the cluster and MgII positions
@@ -403,7 +307,6 @@ if CALC:
         pairs0 = match_clus_qso(clus, qso, 
             filename=run_id + '/qso_cluster_pairs.fits')
 
-
     # assign a unique identifier to each pair. modifies pairs in place.
     add_columns(pairs0, ['pid'], [np.arange(len(pairs0))])
 
@@ -429,14 +332,10 @@ if 0:
     plt.show()
 
 if PLOTRES:
-    #cond = clus['richness'] > RICHCUT
-    plot_hist(run_id, clus, ab['MgII'])
-
+    plot_hist(run_id, clus, ab['MgII'], run_id)
 
 if CALC:
-    #cond = clus['richness'] > RICHCUT
-    # could also use BCG_Z_SPEC here.
-    cids = clus['id']#[cond]
+    cids = clus['id']
     pairs = pairs0[np.in1d(pairs0['cid'], cids)]
 
     # for each qso-cluster pair find any absorbers with impact par <
@@ -450,7 +349,11 @@ if CALC:
     # qso id
     # total zpath over all pairs
 
-    rbin = Bins(np.arange(0, 11, 1))
+    #LOGBINS = False
+    #rbin = Bins(np.arange(0, 11, 1))
+
+    LOGBINS = True
+    rbin = Bins(np.arange(-2, 1.21, 0.2))
 
     outname = run_id + '/rho_dNdz_clus.sav'
     if os.path.exists(outname):
@@ -521,8 +424,12 @@ if CALC:
                     print '    MgII close', mg2[close_z]['z']
                     print '    ic={:i}, zmin={.3f}, zmax={.3f}'.format(p['ic'], zmin, zmax)
                     raw_input('We have a nearby absorber!')
-    
-                ibin = int(p['sepMpc_prop'] / rbin.width[0])
+
+                if LOGBINS:
+                    ibin = int((p['logsepMpc_prop'] - rbin.edges[0]) /
+                               rbin.width[0])
+                else:
+                    ibin = int(p['sepMpc_prop'] / rbin.width[0])
                 rho[ibin]['zpathlim'].append((zmin, zmax))
                 rho[ibin]['abid'].append(closeids)
                 rho[ibin]['cid'].append(p['cid'])
@@ -547,43 +454,53 @@ if PLOTRES:
 
     outname = run_id + '/rho_dNdz_clus.sav'
     #outname = 'rho_dNdz_clus_s_lt_10.sav'
-    fig = plt.figure(3, figsize=(7.5,7.5))
-    fig.clf()
-    fig.subplots_adjust(left=0.16)
+    fig3 = plt.figure(3, figsize=(7.5,7.5))
+    fig3.subplots_adjust(left=0.16)
+    fig3.clf()
     ax = plt.gca()
-    plt.title(run_id)
-    #plt.title('All clusters')
+    ax.set_title(run_id)
 
     if 0:
-        ewbins = Bins([0.5, 0.7,1.0, 1.5, 5.0])
-        labels = ('0.4 < Wr$_{2796}$ < 0.7',   '0.7 < Wr$_{2796}$ < 1.0',
+        ewbins = Bins([0.5, 0.7, 1.0, 1.5, 5.0])
+        labels = ('0.4 < Wr$_{2796}$ < 0.7', '0.7 < Wr$_{2796}$ < 1.0',
+                  '1.0 < Wr$_{2796}$ < 1.5',
+                  '1.5 < Wr$_{2796}$ < 5')
+        colors = 'gbmr'
+        symbols = 'soo^'
+        offsets = [-0.075, -0.025, 0.025, 0.075]
+    elif 0:
+        ewbins = Bins([0.0, 0.6, 1.0, 1.5, 5.0])
+        labels = ('0.3 < Wr$_{2796}$ < 0.6',
+                  '0.6 < Wr$_{2796}$ < 1.0',
                   '1.0 < Wr$_{2796}$ < 1.5',
                   '1.5 < Wr$_{2796}$ < 5')
         colors = 'gbmr'
         symbols = 'soo^'
         offsets = [-0.075, -0.025, 0.025, 0.075]
     else:
-        ewbins = Bins([0.0, 1.0, 1.5, 5.0])
-        labels = ('0.3 < Wr$_{2796}$ < 1.0',   '0.7 < Wr$_{2796}$ < 1.5',
-                  '1.5 < Wr$_{2796}$ < 5')
-        colors = 'gbr'
-        symbols = 'so^'
-        offsets = [-0.075, -0.025, 0.025]
-    
+        ewbins = Bins([0.6, 5.0])
+        labels = ['0.6 < Wr$_{2796}$ < 5']
+        colors = 'g'
+        symbols = 'o'
+        offsets = [0]
 
     for i in range(len(labels)):
-        dNdz, dNdz_er, n = find_dndz_vs_rho(rho, ab['MgII'], iMgII_from_id,
-                                            ewbins.edges[i], ewbins.edges[i+1])
-        errplot(rbin.cen + offsets[i], dNdz, dNdz_er, ax=ax,
+        dNdz, dNdz_er, n = find_dndz_vs_rho(
+            rho, ab['MgII'], iMgII_from_id,
+            ewbins.edges[i], ewbins.edges[i+1])
+        errplot(np.log10(rbin.cen + offsets[i]), dNdz, dNdz_er, ax=ax,
                 fmt=colors[i]+symbols[i], label=labels[i])
         for j in range(len(n)):
-            puttext(rbin.cen[j], 0.03 + i*0.03, n[j], ax, color=colors[i], fontsize=10, xcoord='data')
+            puttext(rbin.cen[j], 0.03 + i*0.03, n[j], ax, color=colors[i],
+                    fontsize=10, xcoord='data')
     
-    plt.legend(frameon=0)
-    plt.xlabel('Cluster-absorber impact par. (proper Mpc)')
-    plt.ylabel(r'$dN/dz\ (MgII)$')
-    plt.minorticks_on()
-    plt.ylim(-0.09, 0.85)
-    plt.xlim(-0.5, 10.5)
-    plt.savefig(run_id + '/dNdz_vs_rho.png')
+    ax.legend(frameon=0)
+    ax.set_xlabel('Cluster-absorber impact par. (proper Mpc)')
+    ax.set_ylabel(r'$dN/dz\ (MgII)$')
+    #ax.minorticks_on()
+    ax.set_ylim(-0.09, 0.85)
+    ax.set_xlim(-0.5, 10.5)
+    make_log_xlabels(ax)
+    make_log_ylabels(ax)
+    fig3.savefig(run_id + '/dNdz_vs_rho.png')
     plt.show()
