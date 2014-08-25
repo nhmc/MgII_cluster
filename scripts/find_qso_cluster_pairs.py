@@ -4,12 +4,13 @@ from barak.utilities import between, indgroupby, flatten, Bins
 from barak.plot import errplot, puttext, make_log_xlabels, \
      make_log_ylabels
 from barak.io import loadobj,saveobj
-from astropy.table import Table
+from astropy.table import Table, Column
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM, Planck13
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.mlab import rec_append_fields
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
@@ -19,17 +20,14 @@ DEBUG = False
 
 WMIN_MGII_ZSEARCH = 3800.
 WMAX_MGII_ZSEARCH = 9100.
-MgIICAT = 'Zhu'
-#MgIICAT = 'Britt'
-CLUSCAT = 'Redmapper'
-#CLUSCAT = 'GMBCG'
 
 ZMIN_CLUS = 0.33
 
 # a hit is an absorber within +/- CLUS_ZERR of a cluster redshift
 #CLUS_ZERR = 0.03
 CLUS_ZERR = 'erphotz'
-# minimum richness (S_CLUSTER for GMBCG)
+
+# minimum richness
 #MAXRICH = 1000
 #MINRICH = 10
 
@@ -39,16 +37,18 @@ log10MAXMASS = 20.0
 # 10^13.6, 10^13.8, 10^14, 10^14.2, 10^14.4, 10^14.4 and above have all
 # roughly equal numebrs of clusters.
 
-# stop MgII z search path this many km/s of QSO MgII emission (negative means bluewards)
+# stop MgII z search path this many km/s from QSO MgII emission
+# (negative means bluewards)
 DV_MAX_ZSEARCH = -5000.
-# start MgII z search path this many km/s if QSO Lya emission (positive means redwards)
+# start MgII z search path this many km/s from QSO Lya emission
+# (positive means redwards)
 DV_MIN_ZSEARCH = 3000.
 
-run_id = 'mass_{}-{}_{}'.format(log10MINMASS, log10MAXMASS, CLUS_ZERR)
+# maximum rho for matching qso-cluster pairs in proper Mpc 
+MAX_RHO_PROP_MPC = 26.
 
-# run_id = '{}_{}_rich_{}-{}_{}_{}_{}'.format(
-#     MgIICAT, CLUSCAT, MINRICH, MAXRICH, CLUS_ZERR, WMIN_MGII_ZSEARCH, WMAX_MGII_ZSEARCH)    
-
+run_id = 'mass_{}-{}_{}_rho_{}'.format(
+    log10MINMASS, log10MAXMASS, CLUS_ZERR, MAX_RHO_PROP_MPC)
 
 c_kms = 299792.458         # speed of light km/s, exact
 wlya = 1215.6701
@@ -58,31 +58,51 @@ w2803 = 2803.5314853
 print run_id
 
 if not os.path.exists(run_id):
-    print 'creating directory', run_id
+    print 'Creating directory', run_id
     os.mkdir(run_id)
 
 prefix = '/Users/ncrighton/Projects/qso_clusters/'
 #prefix = '/media/ntejos/disk1/catalogs/'
 
-def add_columns(table, names, arr, indexes=None):
-    from astropy.table import Column
-    if isinstance(names, basestring):
-        names = [n.strip() for n in names.split(',')]
-    assert len(names) == len(arr)
-    columns = [Column(name=names[i], data=arr[i]) for i in range(len(names))]
-    table.add_columns(columns, indexes=indexes)
+def plot_hist(run_id, clus, MgII, title):
+    """ Plot cluster and MgII redshift histograms. """
+    zbin = Bins(np.arange(-0.1, 1.2, 0.025))
+    fig = plt.figure(1, figsize=(4.5,4.5))
+    fig.clf()
+    ax = plt.gca()
+    vals,_ = np.histogram(clus.z, bins=zbin.edges)
+    y = np.where(vals == 0, -10, np.log10(vals))
+    ax.plot(zbin.cen, y, 'r', lw=2, ls='steps-mid',
+            label='clusters (n=%i)' % len(clus), zorder=10)
+    vals,_ = np.histogram(MgII['z'], bins=zbin.edges)
+    label = 'MgII (n={})'.format(len(MgII))
+    y = np.where(vals == 0, -10, np.log10(vals))
+    ax.plot(zbin.cen, y, 'b',lw=2, ls='steps-mid', label=label)
+    ax.set_xlabel('$\mathrm{Redshift}$')
+    ax.set_ylabel('$\mathrm{Number}$')
+    y0,y1 = ax.get_ylim()
+    ax.set_ylim(-0.8, y1)
+    ax.set_xlim(0.25, 1.05)
+    make_log_ylabels(ax)
+    ax.legend(frameon=0, fontsize=8)
+    ax.set_title(title)
+    plt.savefig(run_id + '/zhist.png', dpi=200, bbox_inches='tight')
 
-def match_clus_qso(clus, qso, filename=None, rho=20):
+def match_clus_qso(clus, qso, filename=None, rho=MAX_RHO_PROP_MPC):
     """find all QSO - cluster pairs with impact params < rho.
 
+    Need fields:
+    
     clus['ra'], clus['dec'], clus['z'], clus['id'], clus['rlos']
-    rlos is the comoving line of sight distance to each cluster
+
+    where rlos is the comoving line of sight distance to each cluster
+
     qso['ra'], qso['dec'], qso['zmin_MgII'], qso['zmax_MgII'], qso['qid']
 
     rho is in same units as rlos (default assumes Mpc), and is a proper
     distance
     """
-    print 'matching'
+    print 'Matching'
 
     iqso = []
     iclus = []
@@ -91,9 +111,6 @@ def match_clus_qso(clus, qso, filename=None, rho=20):
     seps_deg = []
     seps_Mpc = []
 
-    #fig9 = plt.figure(9)
-    #ax = pl.gca()
-    #ax.cla()
     for i in xrange(len(clus)):
         # find impact parameter in degrees corresponding to maximum rho in proper Mpc
         # note rho is a proper distance
@@ -136,9 +153,8 @@ def match_clus_qso(clus, qso, filename=None, rho=20):
          logsepMpc_com, logsepMpc_prop, zclus, zclus_er],
         names=names)
 
-    qnear = Table(qnear)
     if filename is not None:
-        qnear.write(filename)
+        Table(qnear).write(filename)
 
     return qnear
 
@@ -156,7 +172,7 @@ def find_dndz_vs_rho(rho, mg2, iMgII_from_id, ewrestmin, ewrestmax):
         l = c0.sum()
         res.append((l / r['zpathtot'], np.sqrt(l) / r['zpathtot'], l))
 
-    dNdz, dNdz_err, nabs = zip(*res)
+    dNdz, dNdz_err, nabs = map(np.array, zip(*res))
     print nabs
     return dNdz, dNdz_err, nabs
 
@@ -202,7 +218,6 @@ def read_redmapper():
                            names='ra,dec,z,zer,richness,id,rlos,m200')
     d2 = d1[d1.z > ZMIN_CLUS]
     d3 = d2[between(np.log10(d2['m200']), log10MINMASS, log10MAXMASS)]
-    #d3 = d2[between(d2['richness'], MINRICH, MAXRICH)]
 
     iclus_from_id = {idval:i for i,idval in enumerate(d3.id)}
     return d3, iclus_from_id
@@ -245,7 +260,8 @@ def read_zhu():
 
     # add in DR9 too later? (not as many as DR7). Need to check there
     # is no overlap in QSOs first.
-    arr = [qso['RA'], qso['DEC'], qso['ZQSO'], qso_zmin, qso_zmax, qso['INDEX_QSO']]
+    arr = [qso['RA'], qso['DEC'], qso['ZQSO'], qso_zmin, qso_zmax,
+           qso['INDEX_QSO']]
     qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid')
     arr = [MgII.ZABS, MgII.REW_MGII_2796, MgII.INDEX_QSO, np.arange(len(MgII))]
     MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
@@ -256,80 +272,26 @@ def read_zhu():
 
     return dict(MgII=MgII1, qso=qso1), iqso_from_id, iMgII_from_id
 
-def plot_hist(run_id, clus, MgII, title):
-    zbin = Bins(np.arange(-0.1, 1.2, 0.025))
-    fig = plt.figure(1, figsize=(4.5,4.5))
-    fig.clf()
-    ax = plt.gca()
-    vals,_ = np.histogram(clus.z, bins=zbin.edges)
-    y = np.where(vals == 0, -0.1, np.log10(vals))
-    ax.plot(zbin.cen, y, 'r', lw=2, ls='steps-mid',
-            label='clusters (n=%i)' % len(clus), zorder=10)
-    vals,_ = np.histogram(MgII['z'], bins=zbin.edges)
-    label = 'MgII (n={})'.format(len(MgII))
-    y = np.where(vals == 0, -0.1, np.log10(vals))
-    ax.plot(zbin.cen, y, 'b',lw=2, ls='steps-mid', label=label)
-    ax.set_xlabel('$\mathrm{Redshift}$')
-    ax.set_ylabel('$\log_{10}(\mathrm{Number})$')
-    ax.set_xlim(0.25, 0.9)
-    plt.legend(frameon=0, fontsize=8)
-    plt.title(title)
-    plt.savefig(run_id + '/zhist.png', dpi=200)
 
-
-
-if 1:
+if CALC:
+    print 'Reading cluster and MgII catalogues'
     clus, iclus_from_id = read_redmapper()
     ab, iqso_from_id, iMgII_from_id = read_zhu()
 
-if 0:
-    # Compare the cluster and MgII positions
-    plt.figure()
-    plt.plot(clus.ra, clus.dec, 'x')
-    plt.plot(ab['qso'].ra, ab['qso'].dec, '+', ms=8, mew=2)
-    plt.show()
-
-    # they overlap nicely
-
-if 0:
-    # plot the equivalent width distribution for MgII
-    plt.figure()
-    plt.hist(ab['MgII'].Wr, log=True, bins=np.arange(0, 20, 0.1))
-
-if CALC:
     qso = ab['qso']
     # find qso sightlines that are within 10 proper Mpc of a foreground cluster.
 
     if os.path.exists(run_id + '/qso_cluster_pairs.fits'):
-        pairs0 = Table.read(run_id + '/qso_cluster_pairs.fits')
+        print 'Reading', run_id + '/qso_cluster_pairs.fit'
+        pairs0 = fits.getdata(run_id + '/qso_cluster_pairs.fits')
     else:
         # takes about 10 min to run.
         pairs0 = match_clus_qso(clus, qso, 
             filename=run_id + '/qso_cluster_pairs.fits')
 
     # assign a unique identifier to each pair. modifies pairs in place.
-    add_columns(pairs0, ['pid'], [np.arange(len(pairs0))])
 
-
-if 0:
-    # Plot the redshift distributions for clusters and MgII
-    zbin = Bins(np.arange(-0.1, 1.2, 0.1))
-    fig = plt.figure(1)
-    fig.clf()
-    ax = plt.gca()
-    vals,_ = np.histogram(clus.z, bins=zbin.edges)
-    ax.plot(zbin.cen, vals/10., 'm', lw=2, ls='steps-mid',
-            label='redmapper (n=%i)' % len(clus), zorder=10)
-    vals,_ = np.histogram(britt.z_abs[britt.z_abs > 0], bins=zbin.edges)
-    ax.plot(zbin.cen, vals, 'g',lw=2, ls='steps-mid', label='Britt MgII')
-    vals,_ = np.histogram(ab['MgII'].z, bins=zbin.edges)
-    ax.plot(zbin.cen, vals, 'k',lw=2,
-            drawstyle='steps-mid', label='Zhu dr7 MgII exp')
-
-    ax.set_xlabel('Redshift')
-    #ax.set_ylim(-0.2, 1.8)
-    plt.legend(frameon=0, fontsize=8)
-    plt.show()
+    pairs0 = rec_append_fields(pairs0, ['pid'], [np.arange(len(pairs0))])
 
 if PLOTRES:
     plot_hist(run_id, clus, ab['MgII'], run_id)
@@ -353,15 +315,15 @@ if CALC:
     #rbin = Bins(np.arange(0, 11, 1))
 
     LOGBINS = True
-    rbin = Bins(np.arange(-2, 1.21, 0.2))
+    rbin = Bins(np.arange(-1.4, 1.61, 0.2))
 
     outname = run_id + '/rho_dNdz_clus.sav'
     if os.path.exists(outname):
-        print 'Reading results from', outname
+        print 'Reading', outname
         rho = loadobj(outname)
     else:
-        rho = [dict(zpathlim=[], abid=[], pid=[], cid=[], qid=[], zpathtot=0) for
-               i in range(len(rbin.cen))]
+        rho = [dict(zpathlim=[], abid=[], pid=[], cid=[], qid=[],
+                    Wr=[], Wre=[], zpathtot=0) for i in xrange(len(rbin.cen))]
     
         # find tot zpath (including both field and cluster paths up to
         # z=1, only towards sightlines with a nearby cluster though) also?
@@ -372,6 +334,7 @@ if CALC:
             fig4 = plt.figure(4, figsize=(6,6))
             ax = fig4.add_subplot(111)
 
+        print 'Looping over QSOs'
         for i,(qid,ind) in enumerate(indgroupby(pairs, 'qid')):
             if not i % 2000:
                 print i
@@ -402,27 +365,32 @@ if CALC:
             #raw_input('  About to loop of pairs for this sightline...')
             # for each cluster near this sightline
             for p in pairs[ind]:
+                cz = p['cz']
                 if DEBUG:
-                    print '    pair cluster z %.3f, sep Mpc %.2f' % (p['cz'], p['sepMpc_prop'])
+                    print '    pair cluster z %.3f, sep Mpc %.2f' % (
+                        p['cz'], p['sepMpc_prop'])
                 # check MgII detection range overlaps with cluster z
                 # if not, skip to next cluster
-                if not between(p['cz'], zmin_mg2, zmax_mg2):
-                    if DEBUG:
-                        print '    cluster outside MgII region'
+                if cz < zmin_mg2:
                     continue
+                if cz > zmax_mg2:
+                    continue
+
                 # redshift uncertainty in cluster                    
-                zmin = max(p['cz'] - p['cz_er'], zmin_mg2)
-                zmax = min(p['cz'] + p['cz_er'], zmax_mg2)
+                zmin = max(cz - p['cz_er'], zmin_mg2)
+                zmax = min(cz + p['cz_er'], zmax_mg2)
                 #assert zmax > zmin
     
                 close_z = between(mg2['z'], zmin, zmax)
                 closeids = mg2['abid'][close_z]
                 nabs = len(closeids)
-    
+
+
                 if DEBUG:
                     print '    nMgII', nabs
                     print '    MgII close', mg2[close_z]['z']
-                    print '    ic={:i}, zmin={.3f}, zmax={.3f}'.format(p['ic'], zmin, zmax)
+                    print '    ic={:i}, zmin={.3f}, zmax={.3f}'.format(
+                        p['ic'], zmin, zmax)
                     raw_input('We have a nearby absorber!')
 
                 if LOGBINS:
@@ -430,6 +398,7 @@ if CALC:
                                rbin.width[0])
                 else:
                     ibin = int(p['sepMpc_prop'] / rbin.width[0])
+
                 rho[ibin]['zpathlim'].append((zmin, zmax))
                 rho[ibin]['abid'].append(closeids)
                 rho[ibin]['cid'].append(p['cid'])
@@ -453,54 +422,38 @@ if CALC:
 if PLOTRES:
 
     outname = run_id + '/rho_dNdz_clus.sav'
-    #outname = 'rho_dNdz_clus_s_lt_10.sav'
     fig3 = plt.figure(3, figsize=(7.5,7.5))
-    fig3.subplots_adjust(left=0.16)
+    #fig3.subplots_adjust(left=0.16)
     fig3.clf()
     ax = plt.gca()
     ax.set_title(run_id)
 
-    if 0:
-        ewbins = Bins([0.5, 0.7, 1.0, 1.5, 5.0])
-        labels = ('0.4 < Wr$_{2796}$ < 0.7', '0.7 < Wr$_{2796}$ < 1.0',
-                  '1.0 < Wr$_{2796}$ < 1.5',
-                  '1.5 < Wr$_{2796}$ < 5')
-        colors = 'gbmr'
-        symbols = 'soo^'
-        offsets = [-0.075, -0.025, 0.025, 0.075]
-    elif 0:
-        ewbins = Bins([0.0, 0.6, 1.0, 1.5, 5.0])
-        labels = ('0.3 < Wr$_{2796}$ < 0.6',
-                  '0.6 < Wr$_{2796}$ < 1.0',
-                  '1.0 < Wr$_{2796}$ < 1.5',
-                  '1.5 < Wr$_{2796}$ < 5')
-        colors = 'gbmr'
-        symbols = 'soo^'
-        offsets = [-0.075, -0.025, 0.025, 0.075]
-    else:
-        ewbins = Bins([0.6, 5.0])
-        labels = ['0.6 < Wr$_{2796}$ < 5']
-        colors = 'g'
-        symbols = 'o'
-        offsets = [0]
+    ewbins = Bins([0.6, 5.0])
+    labels = ['0.6 < Wr$_{2796}$ < 5']
+    colors = 'g'
+    symbols = 'o'
+    offsets = [0]
 
     for i in range(len(labels)):
         dNdz, dNdz_er, n = find_dndz_vs_rho(
             rho, ab['MgII'], iMgII_from_id,
             ewbins.edges[i], ewbins.edges[i+1])
-        errplot(np.log10(rbin.cen + offsets[i]), dNdz, dNdz_er, ax=ax,
+        y = np.log10(dNdz)
+        ylo = np.log10(dNdz - dNdz_er)
+        yhi = np.log10(dNdz + dNdz_er)
+        errplot(rbin.cen + offsets[i], y, (ylo, yhi), ax=ax,
                 fmt=colors[i]+symbols[i], label=labels[i])
         for j in range(len(n)):
-            puttext(rbin.cen[j], 0.03 + i*0.03, n[j], ax, color=colors[i],
-                    fontsize=10, xcoord='data')
+            puttext(rbin.cen[j], 0.03 + i*0.03, str(n[j]), ax, color=colors[i],
+                    fontsize=10, xcoord='data', ha='center')
     
     ax.legend(frameon=0)
     ax.set_xlabel('Cluster-absorber impact par. (proper Mpc)')
     ax.set_ylabel(r'$dN/dz\ (MgII)$')
-    #ax.minorticks_on()
-    ax.set_ylim(-0.09, 0.85)
-    ax.set_xlim(-0.5, 10.5)
+    # skip last bin, where not all pairs are measured.
+    ax.set_xlim(rbin.edges[0] - rbin.halfwidth[0],
+                rbin.edges[-2] + rbin.halfwidth[-1])
     make_log_xlabels(ax)
     make_log_ylabels(ax)
-    fig3.savefig(run_id + '/dNdz_vs_rho.png')
+    #fig3.savefig(run_id + '/dNdz_vs_rho.png')
     plt.show()
