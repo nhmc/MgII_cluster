@@ -1,5 +1,5 @@
 from __future__ import division
-from barak.coord import ang_sep
+from barak.coord import ang_sep, match as match_radec
 from barak.utilities import between, indgroupby, flatten, Bins
 from barak.plot import errplot, puttext, make_log_xlabels, \
      make_log_ylabels
@@ -11,6 +11,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.mlab import rec_append_fields
+
 
 #cosmo = FlatLambdaCDM(H0=70, Om0=0.27)
 cosmo = Planck13
@@ -63,6 +64,63 @@ if not os.path.exists(run_id):
 
 prefix = '/Users/ncrighton/Projects/qso_clusters/'
 #prefix = '/media/ntejos/disk1/catalogs/'
+
+def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
+    """For a given well defined rho dictionary, it plots different QSO
+    properties with the aim to test fo systematics.
+
+    """
+    global rbin
+    if qso_props is None:
+        qso_props=['z','snr','nabs','RMAG','IMAG','ZMAG']
+    
+    for i,qso_prop in enumerate(qso_props):
+        mean = []
+        err = []
+        median = []
+        n = []
+        for r in rho:
+            # QSOs in this bin
+            qids = np.array([iqso_from_id[ind] for ind in r['qid']], dtype=int)
+            prop = ab['qso'][qso_prop][qids]
+            mean += [np.mean(prop)]
+            err  += [np.std(prop)]
+            median += [np.median(prop)]
+            n  += [len(qids)]
+        ax = fig.add_subplot(1,len(qso_props),i)
+        ax.errorbar(rbin.cen,mean,yerr=err,capsize=0,fmt='-o',color='k')
+        ax.plot(rbin.cen,median,'-r',lw=3)
+        for j in range(len(n)):
+            puttext(rbin.cen[j], 0.1 , str(n[j]), ax, color='k',
+                    fontsize=10, xcoord='data', ha='center')
+        ax.set_xlabel('rho')
+        ax.set_ylabel(qso_prop)
+
+
+def append_QSO_props(ab,qso_props=None):
+    """For each QSO in ab['qso'], it finds the corresponding one to the
+    catalog of Scheider et al. for DR7 QSOs and append properties to
+    ab['qso'].
+
+    """
+    #Tables work better for me to append
+    qso_orig = Table(ab['qso'])
+
+    qsos_dr7 = fits.getdata('/media/ntejos/disk1/catalogs/qso_sdss_dr7/dr7qso.fit') #Scheider et al.
+    if qso_props is None:
+        props = ['RMAG','IMAG','ZMAG'] #subsample of properties in qsos_dr7
+    
+    #find the matched indices
+    matches = match_radec(qso_orig['ra'],qso_orig['dec'],qsos_dr7['RA'],qsos_dr7['DEC'],2.)
+    
+    #append properties to the original ab['qso']
+    for prop in props:
+        aux_prop = qsos_dr7[prop][matches['ind']] # matched property
+        aux_prop = np.where(matches['ind']==-1,-1,aux_prop) #replace unmatched values with -1
+        qso_orig.add_column(Column(data=aux_prop,name=prop))
+    return qso_orig
+
+
 
 def plot_hist(run_id, clus, MgII, title):
     """ Plot cluster and MgII redshift histograms. """
@@ -457,3 +515,11 @@ if PLOTRES:
     make_log_ylabels(ax)
     #fig3.savefig(run_id + '/dNdz_vs_rho.png')
     plt.show()
+
+
+if 0:
+    # check whether QSO properties are consistent across bins
+    qso_orig = append_QSO_props(ab)
+    ab['qso'] = qso_orig
+    fig = plt.figure(figsize=(20,5))
+    plot_rho_QSO_prop(fig, rho, ab, iqso_from_id)
