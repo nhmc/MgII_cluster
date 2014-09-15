@@ -23,6 +23,10 @@ WMIN_MGII_ZSEARCH = 3800.
 WMAX_MGII_ZSEARCH = 9100.
 
 ZMIN_CLUS = 0.33
+# there seems to be a cutoff for most clusters at z=0.6. Careful of
+# the higher z ones - maybe they differ from the others somehow?
+ZMAX_CLUS = 0.7
+
 
 # a hit is an absorber within +/- CLUS_ZERR of a cluster redshift
 #CLUS_ZERR = 0.03
@@ -36,7 +40,10 @@ log10MINMASS = 13.6
 log10MAXMASS = 20.0
 
 # 10^13.6, 10^13.8, 10^14, 10^14.2, 10^14.4, 10^14.4 and above have all
-# roughly equal numebrs of clusters.
+# roughly equal numbers of clusters.
+
+# 10^13.6, 10^14.1, 10^14.4, 10^14.4, 10^20
+# 
 
 # stop MgII z search path this many km/s from QSO MgII emission
 # (negative means bluewards)
@@ -46,7 +53,7 @@ DV_MAX_ZSEARCH = -5000.
 DV_MIN_ZSEARCH = 3000.
 
 # maximum rho for matching qso-cluster pairs in proper Mpc 
-MAX_RHO_PROP_MPC = 26.
+MAX_RHO_PROP_MPC = 46.
 
 run_id = 'mass_{}-{}_{}_rho_{}'.format(
     log10MINMASS, log10MAXMASS, CLUS_ZERR, MAX_RHO_PROP_MPC)
@@ -274,7 +281,7 @@ def read_redmapper():
     d1 = np.rec.fromarrays([d.RA, d.DEC, z, zer,
                             d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value, m200],
                            names='ra,dec,z,zer,richness,id,rlos,m200')
-    d2 = d1[d1.z > ZMIN_CLUS]
+    d2 = d1[between(d1.z, ZMIN_CLUS, ZMAX_CLUS)]
     d3 = d2[between(np.log10(d2['m200']), log10MINMASS, log10MAXMASS)]
 
     iclus_from_id = {idval:i for i,idval in enumerate(d3.id)}
@@ -373,7 +380,7 @@ if CALC:
     #rbin = Bins(np.arange(0, 11, 1))
 
     LOGBINS = True
-    rbin = Bins(np.arange(-1.4, 1.61, 0.2))
+    rbin = Bins(np.arange(-1.2, 1.81, 0.2))
 
     outname = run_id + '/rho_dNdz_clus.sav'
     if os.path.exists(outname):
@@ -443,7 +450,6 @@ if CALC:
                 closeids = mg2['abid'][close_z]
                 nabs = len(closeids)
 
-
                 if DEBUG:
                     print '    nMgII', nabs
                     print '    MgII close', mg2[close_z]['z']
@@ -463,7 +469,7 @@ if CALC:
                 rho[ibin]['pid'].append(p['pid'])
                 rho[ibin]['qid'].append(p['qid'])
     
-        # count the total redshift path per bin, and the total bumber 
+        # count the total redshift path per bin, and the total number 
         for i in range(len(rho)):
             zpathlim = np.array(rho[i]['zpathlim'])
             if len(zpathlim) == 0:
@@ -476,10 +482,8 @@ if CALC:
         print 'Saving to', outname
         saveobj(outname, rho, overwrite=1)
 
-
 if PLOTRES:
 
-    outname = run_id + '/rho_dNdz_clus.sav'
     fig3 = plt.figure(3, figsize=(7.5,7.5))
     #fig3.subplots_adjust(left=0.16)
     fig3.clf()
@@ -509,12 +513,14 @@ if PLOTRES:
     ax.set_xlabel('Cluster-absorber impact par. (proper Mpc)')
     ax.set_ylabel(r'$dN/dz\ (MgII)$')
     # skip last bin, where not all pairs are measured.
+    #ax.set_xlim(rbin.edges[0] - rbin.halfwidth[0],
+    #            rbin.edges[-2] + rbin.halfwidth[-1])
     ax.set_xlim(rbin.edges[0] - rbin.halfwidth[0],
                 rbin.edges[-2] + rbin.halfwidth[-1])
     make_log_xlabels(ax)
     make_log_ylabels(ax)
-    #fig3.savefig(run_id + '/dNdz_vs_rho.png')
-    plt.show()
+    fig3.savefig(run_id + '/dNdz_vs_rho.png', dpi=200, bbox_inches='tight')
+    #plt.show()
 
 
 if 0:
