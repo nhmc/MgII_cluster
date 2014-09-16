@@ -69,8 +69,8 @@ if not os.path.exists(run_id):
     print 'Creating directory', run_id
     os.mkdir(run_id)
 
-prefix = '/Users/ncrighton/Projects/qso_clusters/'
-#prefix = '/media/ntejos/disk1/catalogs/'
+#prefix = '/Users/ncrighton/Projects/qso_clusters/'
+prefix = '/media/ntejos/disk1/catalogs/'
 
 def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
     """For a given well defined rho dictionary, it plots different QSO
@@ -79,7 +79,7 @@ def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
     """
     global rbin
     if qso_props is None:
-        qso_props=['z','snr','nabs','RMAG','IMAG','ZMAG']
+        qso_props=['UMAG','GMAG','IMAG','RMAG','ZMAG','z','snr','nabs']
     
     for i,qso_prop in enumerate(qso_props):
         mean = []
@@ -104,24 +104,24 @@ def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
         ax.set_ylabel(qso_prop)
 
 
-def append_QSO_props(ab,qso_props=None):
+def append_QSO_props(qso,filename_schneider='/media/ntejos/disk1/catalogs/qso_sdss_dr7/dr7qso.fit',qso_props=None):
     """For each QSO in ab['qso'], it finds the corresponding one to the
-    catalog of Scheider et al. for DR7 QSOs and append properties to
+    catalog of Schneider et al. for DR7 QSOs and append properties to
     ab['qso'].
 
     """
     #Tables work better for me to append
-    qso_orig = Table(ab['qso'])
+    qso_orig = Table(qso)
 
-    qsos_dr7 = fits.getdata('/media/ntejos/disk1/catalogs/qso_sdss_dr7/dr7qso.fit') #Scheider et al.
+    qsos_dr7 = fits.getdata(filename_schneider) #Scheider et al.
     if qso_props is None:
-        props = ['RMAG','IMAG','ZMAG'] #subsample of properties in qsos_dr7
+        qso_props = ['UMAG','GMAG','IMAG','RMAG','ZMAG'] #subsample of properties in qsos_dr7
     
     #find the matched indices
     matches = match_radec(qso_orig['ra'],qso_orig['dec'],qsos_dr7['RA'],qsos_dr7['DEC'],2.)
     
     #append properties to the original ab['qso']
-    for prop in props:
+    for prop in qso_props:
         aux_prop = qsos_dr7[prop][matches['ind']] # matched property
         aux_prop = np.where(matches['ind']==-1,-1,aux_prop) #replace unmatched values with -1
         qso_orig.add_column(Column(data=aux_prop,name=prop))
@@ -247,10 +247,10 @@ def m200_from_richness(lam):
     return 10**14 * (lam/60.)**1.08 * np.exp(1.72)
 
 def read_redmapper():
-    d = fits.getdata(prefix + 'clusters/redmapper/'
-                     'dr8_run_redmapper_v5.10_lgt5_catalog.fits')
-    #d = fits.getdata(prefix + 'clusters/redmapper/DR8/'
-    #                 'dr8_run_redmapper_v5.10_lgt5_catalog.fit')
+    #d = fits.getdata(prefix + 'clusters/redmapper/'
+    #                 'dr8_run_redmapper_v5.10_lgt5_catalog.fits')
+    d = fits.getdata(prefix + 'clusters/redmapper/DR8/'
+                     'dr8_run_redmapper_v5.10_lgt5_catalog.fit')
 
     z = d['Z_LAMBDA']
     c0 = d['BCG_SPEC_Z'] != -1 
@@ -305,11 +305,13 @@ def get_MgII_zsearch_lim(zqso):
 
 
 def read_zhu():
-    MgII = fits.getdata(prefix + '/MgII/Expanded_SDSS_DR7_107.fits')
-    qso0 = fits.getdata(prefix + '/MgII/QSObased_Expanded_SDSS_DR7_107.fits')
+    #MgII = fits.getdata(prefix + '/MgII/Expanded_SDSS_DR7_107.fits')
+    #qso0 = fits.getdata(prefix + '/MgII/QSObased_Expanded_SDSS_DR7_107.fits')
+    #filename_scheider = 'XXXXXXXXXXXXXXXXX/dr7qso.fit'
 
-    #MgII = fits.getdata(prefix + '/MgII/JHU-SDSS/Expanded_SDSS_DR7_107.fits')
-    #qso0 = fits.getdata(prefix + '/MgII/JHU-SDSS/QSObased_Expanded_SDSS_DR7_107.fits')
+    MgII = fits.getdata(prefix + '/MgII/JHU-SDSS/Expanded_SDSS_DR7_107.fits')
+    qso0 = fits.getdata(prefix + '/MgII/JHU-SDSS/QSObased_Expanded_SDSS_DR7_107.fits')
+    filename_schneider = prefix + '/qso_sdss_dr7/dr7qso.fit'
 
     # find the min & max redshift for MgII search path
     qso_zmin, qso_zmax = get_MgII_zsearch_lim(qso0['ZQSO'])
@@ -326,8 +328,8 @@ def read_zhu():
     # add in DR9 too later? (not as many as DR7). Need to check there
     # is no overlap in QSOs first.
     arr = [qso['RA'], qso['DEC'], qso['ZQSO'], qso_zmin, qso_zmax,
-           qso['INDEX_QSO']]
-    qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid')
+           qso['INDEX_QSO'],qso['SPEC_SNR_MEDIAN'],qso['NABS']]
+    qso1 = np.rec.fromarrays(arr, names='ra,dec,z,zmin_mg2,zmax_mg2, qid, snr, nabs')
     arr = [MgII.ZABS, MgII.REW_MGII_2796, MgII.INDEX_QSO, np.arange(len(MgII))]
     MgII1 = np.rec.fromarrays(arr, names='z,Wr,qid,abid')
     MgII1.sort(order='qid')
@@ -335,7 +337,11 @@ def read_zhu():
     iMgII_from_id = {ind:i for i,ind in enumerate(MgII1['abid'])}
     iqso_from_id = {ind:i for i,ind in enumerate(qso1['qid'])}
 
-    return dict(MgII=MgII1, qso=qso1), iqso_from_id, iMgII_from_id
+    #add QSO properties; will only work for DR7 QSOs (i.e. in Schneider et al. 2010 catalog)
+    qso_props = ['UMAG','GMAG','IMAG','RMAG','ZMAG'] #SDSS filters
+    qso1_plus_props = append_QSO_props(qso1,filename_schneider=filename_schneider,qso_props=qso_props)
+    
+    return dict(MgII=MgII1, qso=qso1_plus_props), iqso_from_id, iMgII_from_id
 
 
 if CALC:
@@ -524,8 +530,4 @@ if PLOTRES:
 
 
 if 0:
-    # check whether QSO properties are consistent across bins
-    qso_orig = append_QSO_props(ab)
-    ab['qso'] = qso_orig
-    fig = plt.figure(figsize=(20,5))
-    plot_rho_QSO_prop(fig, rho, ab, iqso_from_id)
+    pass
