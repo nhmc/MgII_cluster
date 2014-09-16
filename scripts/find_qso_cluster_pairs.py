@@ -62,8 +62,8 @@ if not os.path.exists(run_id):
     print 'Creating directory', run_id
     os.mkdir(run_id)
 
-prefix = '/Users/ncrighton/Projects/qso_clusters/'
-#prefix = '/media/ntejos/disk1/catalogs/'
+#prefix = '/Users/ncrighton/Projects/qso_clusters/'
+prefix = '/media/ntejos/disk1/catalogs/'
 
 def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
     """For a given well defined rho dictionary, it plots different QSO
