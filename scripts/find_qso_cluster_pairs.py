@@ -8,6 +8,7 @@ from astropy.table import Table, Column
 from astropy.io import fits
 from astropy.cosmology import FlatLambdaCDM, Planck13
 import os
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.mlab import rec_append_fields
@@ -69,8 +70,8 @@ if not os.path.exists(run_id):
     print 'Creating directory', run_id
     os.mkdir(run_id)
 
-#prefix = '/Users/ncrighton/Projects/qso_clusters/'
-prefix = '/media/ntejos/disk1/catalogs/'
+prefix = '/Users/ncrighton/Projects/qso_clusters/'
+#prefix = '/media/ntejos/disk1/catalogs/'
 
 def plot_rho_QSO_prop(fig,rho,ab,iqso_from_id,qso_props=None):
     """For a given well defined rho dictionary, it plots different QSO
@@ -343,33 +344,23 @@ def read_zhu():
     
     return dict(MgII=MgII1, qso=qso1_plus_props), iqso_from_id, iMgII_from_id
 
-
 if CALC:
-    print 'Reading cluster and MgII catalogues'
+    print 'Reading cluster catalogue'
     clus, iclus_from_id = read_redmapper()
+    print 'Reading MgII catalogue'
     ab, iqso_from_id, iMgII_from_id = read_zhu()
 
     qso = ab['qso']
-    # find qso sightlines that are within 10 proper Mpc of a foreground cluster.
 
-    if os.path.exists(run_id + '/qso_cluster_pairs.fits'):
-        print 'Reading', run_id + '/qso_cluster_pairs.fit'
-        pairs0 = fits.getdata(run_id + '/qso_cluster_pairs.fits')
-    else:
-        # takes about 10 min to run.
-        pairs0 = match_clus_qso(clus, qso, 
-            filename=run_id + '/qso_cluster_pairs.fits')
-
-    # assign a unique identifier to each pair. modifies pairs in place.
-
-    pairs0 = rec_append_fields(pairs0, ['pid'], [np.arange(len(pairs0))])
 
 if PLOTRES:
     plot_hist(run_id, clus, ab['MgII'], run_id)
 
+
+
 if CALC:
-    cids = clus['id']
-    pairs = pairs0[np.in1d(pairs0['cid'], cids)]
+    # find qso sightlines that are within 10 proper Mpc of a foreground cluster.
+
 
     # for each qso-cluster pair find any absorbers with impact par <
     # 1 Mpc within some z range of the cluster.
@@ -382,33 +373,34 @@ if CALC:
     # qso id
     # total zpath over all pairs
 
-    #LOGBINS = False
-    #rbin = Bins(np.arange(0, 11, 1))
+    outname = run_id + '/qso_cluster_pairs_zpath.fits'
 
-    LOGBINS = True
-    rbin = Bins(np.arange(-1.2, 1.81, 0.2))
-
-    outname = run_id + '/rho_dNdz_clus.sav'
     if os.path.exists(outname):
-        print 'Reading', outname
-        rho = loadobj(outname)
+        print 'Reading', outname, '...',
+        pairs = fits.getdata(outname)
+        print ' done'
     else:
-        rho = [dict(zpathlim=[], abid=[], pid=[], cid=[], qid=[],
-                    Wr=[], Wre=[], zpathtot=0) for i in xrange(len(rbin.cen))]
-    
+        # Find all qso-cluster pairs. takes about 10 min to run.
+        pairs0 = match_clus_qso(clus, qso)
+        # assign a unique identifier to each pair.
+        pairs1 = rec_append_fields(pairs0, ['pid'], [np.arange(len(pairs0))])
+
         # find tot zpath (including both field and cluster paths up to
         # z=1, only towards sightlines with a nearby cluster though) also?
     
-        print 'Calculating MgII hits close to clusters, and the total z path length'
+        print 'Calculating MgII hits and the total z path length'
     
         if DEBUG:
             fig4 = plt.figure(4, figsize=(6,6))
             ax = fig4.add_subplot(111)
 
         print 'Looping over QSOs'
-        for i,(qid,ind) in enumerate(indgroupby(pairs, 'qid')):
+        # extra columns for the qso-cluster pair table.
+        extra_cols = {}
+        n_unique_qsos = len(np.unique(pairs1['qid']))
+        for i,(qid,ind) in enumerate(indgroupby(pairs1, 'qid')):
             if not i % 2000:
-                print i
+                print i, 'of', n_unique_qsos
             # for every cluster near this qso, check zpath, and add to
             # absorbers if necessary
             q = qso[iqso_from_id[qid]]
@@ -416,7 +408,7 @@ if CALC:
             zmax_mg2 = q['zmax_mg2']
     
             if DEBUG:
-                cl = clus[np.in1d(clus['id'], pairs[ind]['cid'])]
+                cl = clus[np.in1d(clus['id'], pairs1[ind]['cid'])]
                 ax.cla()
                 ax.plot(cl['ra'], cl['dec'], 'b+', ms=8, mew=2)
                 ax.plot(q['ra'], q['dec'], 'rx', ms=6, mew=2)
@@ -435,7 +427,7 @@ if CALC:
                 print 'f/g clus', len(ind)
             #raw_input('  About to loop of pairs for this sightline...')
             # for each cluster near this sightline
-            for p in pairs[ind]:
+            for p in pairs1[ind]:
                 cz = p['cz']
                 if DEBUG:
                     print '    pair cluster z %.3f, sep Mpc %.2f' % (
@@ -453,37 +445,100 @@ if CALC:
                 #assert zmax > zmin
     
                 close_z = between(mg2['z'], zmin, zmax)
-                closeids = mg2['abid'][close_z]
-                nabs = len(closeids)
+                closeids = list(mg2['abid'][close_z])
+                assert len(closeids) <= 3
+                # there is a maximum of 3 absorbers links to a single cluster.
+                while len(closeids) < 3:
+                    closeids.append(-1)
 
                 if DEBUG:
+                    nabs = len(closeids)
                     print '    nMgII', nabs
                     print '    MgII close', mg2[close_z]['z']
                     print '    ic={:i}, zmin={.3f}, zmax={.3f}'.format(
                         p['ic'], zmin, zmax)
                     raw_input('We have a nearby absorber!')
 
-                if LOGBINS:
-                    ibin = int((p['logsepMpc_prop'] - rbin.edges[0]) /
-                               rbin.width[0])
-                else:
-                    ibin = int(p['sepMpc_prop'] / rbin.width[0])
+                extra_cols[p['pid']] = zmin, zmax, closeids
 
-                rho[ibin]['zpathlim'].append((zmin, zmax))
-                rho[ibin]['abid'].append(closeids)
-                rho[ibin]['cid'].append(p['cid'])
-                rho[ibin]['pid'].append(p['pid'])
-                rho[ibin]['qid'].append(p['qid'])
+        # this sorting is bit messy
+        sortedkeys = sorted(extra_cols)
+        zmin_vals = np.array([extra_cols[k][0] for k in sortedkeys])
+        zmax_vals = np.array([extra_cols[k][1] for k in sortedkeys])
+        closeids = np.array([extra_cols[k][2] for k in sortedkeys])
+        dtype = pairs1.dtype.descr + [
+            ('zmin','f4'), ('zmax', 'f4'), ('abid', 'i4', (3,))] 
+        cols = [pairs1[n] for n in pairs1.dtype.names] + [
+            zmin_vals, zmax_vals, closeids]
+        pairs2 = np.rec.fromarrays(cols, dtype=dtype)
+
+        print 'Saving to', outname
+        T = Table(pairs2).write(outname)
+        pairs = pairs2
+
+if CALC:
+    # write out a table for Sebastian with
+
+    # nabs
+
+    # Wr (max)
+
+    # cluster mass
+
+    # m200
+
+    # zpath min
+
+    # zpath max
+
+    # cz
+
+    pass
+
+
+if CALC:
+    # now find which pairs are in each rho bin.
     
-        # count the total redshift path per bin, and the total number 
-        for i in range(len(rho)):
-            zpathlim = np.array(rho[i]['zpathlim'])
-            if len(zpathlim) == 0:
+    outname = run_id + '/qso_cluster_pairs_zpath.fits'
+
+    #LOGBINS = False
+    #rbin = Bins(np.arange(0, 11, 1))
+    LOGBINS = True
+    rbin = Bins(np.arange(-1.2, 1.81, 0.2))
+    outname = run_id + '/rho_dNdz_clus.sav'
+    if os.path.exists(outname):
+        print 'Reading', outname
+        rho = loadobj(outname)
+    else:
+        print 'Assigning pairs to bins', rbin.edges
+        
+        rho = [dict(zpathlim=[], abid=[], pid=[], cid=[], qid=[], zpathtot=0) for i in xrange(len(rbin.cen))]
+
+        if LOGBINS:
+            ibins = (pairs['logsepMpc_prop'] - rbin.edges[0]) / rbin.width[0]
+            # make an int array
+            ibins = np.array(np.floor(ibins), int)
+        else:
+            ibins = pairs['sepMpc_prop'] / rbin.width[0]
+            ibins = np.array(np.floor(ibins), int)
+
+        for i in range(len(rbin.cen)):
+            c0 = ibins == i
+            
+            rho[i]['zpathlim'] = pairs[c0]['zmax'], pairs[c0]['zmin']
+            rho[i]['cid'] = pairs['cid'][c0]
+            rho[i]['pid'] = pairs['pid'][c0]
+            rho[i]['qid'] = pairs['qid'][c0]
+
+            # count the total redshift path per bin, and the total number 
+            if c0.sum() == 0:
                 rho[i]['zpathtot'] = 0
             else:
-                rho[i]['zpathtot'] = (zpathlim[:,1] - zpathlim[:,0]).sum()
+                rho[i]['zpathtot'] = np.sum(pairs[c0]['zmax'] - pairs[c0]['zmin'])
             # ids of absorbers matching clusters
-            rho[i]['abid'] = list(flatten(rho[i]['abid']))
+            p = pairs['abid'][c0]
+            # remove non-matches
+            rho[i]['abid'] = p[p > 0]
     
         print 'Saving to', outname
         saveobj(outname, rho, overwrite=1)
@@ -527,7 +582,3 @@ if PLOTRES:
     make_log_ylabels(ax)
     fig3.savefig(run_id + '/dNdz_vs_rho.png', dpi=200, bbox_inches='tight')
     #plt.show()
-
-
-if 0:
-    pass
