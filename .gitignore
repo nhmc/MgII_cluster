@@ -84,3 +84,12 @@ docs/index.rst
 setup.sh
 template_setup.py
 MANIFEST
+*.sav
+clusters
+MgII
+masters_project
+pics
+paper
+literature
+mass_*
+TODO
