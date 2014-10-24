@@ -1,0 +1,143 @@
+%
+%  These Macros are taken from the AAS TeX macro package version 4.0.
+%  Include this file in your LaTeX source only if you are not using
+%  the AAS TeX macro package and need to resolve the macro definitions
+%  in the BibTeX entries returned by the ADS abstract service.
+%
+%  If you plan not to use this file to resolve the journal macros
+%  rather than the whole AAS TeX macro package, you should save the
+%  file as ``aas_macros.sty'' and then include it in your paper by
+%  using a construct such as:
+%	\documentstyle[11pt,aas_macros]{article}
+%
+%  For more information on the AASTeX macro package, please see the URL
+%	http://www.aas.org/publications/aastex.html
+%  For more information about ADS abstract server, please see the URL
+%	http://adswww.harvard.edu/ads_abstracts.html
+%
+
+% Abbreviations for journals.  The object here is to provide authors
+% with convenient shorthands for the most "popular" (often-cited)
+% journals; the author can use these markup tags without being concerned
+% about the exact form of the journal abbreviation, or its formatting.
+% It is up to the keeper of the macros to make sure the macros expand
+% to the proper text.  If macro package writers agree to all use the
+% same TeX command name, authors only have to remember one thing, and
+% the style file will take care of editorial preferences.  This also
+% applies when a single journal decides to revamp its abbreviating
+% scheme, as happened with the ApJ (Abt 1991).
+
+\let\jnl@style=\rm
+\def\ref@jnl#1{{\jnl@style#1}}
+
+\def\aj{\ref@jnl{AJ}}                   % Astronomical Journal
+\def\araa{\ref@jnl{ARA\&A}}             % Annual Review of Astron and Astrophys
+\def\apj{\ref@jnl{ApJ}}                 % Astrophysical Journal
+\def\apjl{\ref@jnl{ApJ}}                % Astrophysical Journal, Letters
+\def\apjs{\ref@jnl{ApJS}}               % Astrophysical Journal, Supplement
+\def\ao{\ref@jnl{Appl.~Opt.}}           % Applied Optics
+\def\apss{\ref@jnl{Ap\&SS}}             % Astrophysics and Space Science
+\def\aap{\ref@jnl{A\&A}}                % Astronomy and Astrophysics
+\def\aapr{\ref@jnl{A\&A~Rev.}}          % Astronomy and Astrophysics Reviews
+\def\aaps{\ref@jnl{A\&AS}}              % Astronomy and Astrophysics, Supplement
+\def\azh{\ref@jnl{AZh}}                 % Astronomicheskii Zhurnal
+\def\baas{\ref@jnl{BAAS}}               % Bulletin of the AAS
+\def\jrasc{\ref@jnl{JRASC}}             % Journal of the RAS of Canada
+\def\memras{\ref@jnl{MmRAS}}            % Memoirs of the RAS
+\def\mnras{\ref@jnl{MNRAS}}             % Monthly Notices of the RAS
+\def\pra{\ref@jnl{Phys.~Rev.~A}}        % Physical Review A: General Physics
+\def\prb{\ref@jnl{Phys.~Rev.~B}}        % Physical Review B: Solid State
+\def\prc{\ref@jnl{Phys.~Rev.~C}}        % Physical Review C
+\def\prd{\ref@jnl{Phys.~Rev.~D}}        % Physical Review D
+\def\pre{\ref@jnl{Phys.~Rev.~E}}        % Physical Review E
+\def\prl{\ref@jnl{Phys.~Rev.~Lett.}}    % Physical Review Letters
+\def\pasp{\ref@jnl{PASP}}               % Publications of the ASP
+\def\pasj{\ref@jnl{PASJ}}               % Publications of the ASJ
+\def\qjras{\ref@jnl{QJRAS}}             % Quarterly Journal of the RAS
+\def\skytel{\ref@jnl{S\&T}}             % Sky and Telescope
+\def\solphys{\ref@jnl{Sol.~Phys.}}      % Solar Physics
+\def\sovast{\ref@jnl{Soviet~Ast.}}      % Soviet Astronomy
+\def\ssr{\ref@jnl{Space~Sci.~Rev.}}     % Space Science Reviews
+\def\zap{\ref@jnl{ZAp}}                 % Zeitschrift fuer Astrophysik
+\def\nat{\ref@jnl{Nature}}              % Nature
+\def\iaucirc{\ref@jnl{IAU~Circ.}}       % IAU Cirulars
+\def\aplett{\ref@jnl{Astrophys.~Lett.}} % Astrophysics Letters
+\def\apspr{\ref@jnl{Astrophys.~Space~Phys.~Res.}}
+                % Astrophysics Space Physics Research
+\def\bain{\ref@jnl{Bull.~Astron.~Inst.~Netherlands}}
+                % Bulletin Astronomical Institute of the Netherlands
+\def\fcp{\ref@jnl{Fund.~Cosmic~Phys.}}  % Fundamental Cosmic Physics
+\def\gca{\ref@jnl{Geochim.~Cosmochim.~Acta}}   % Geochimica Cosmochimica Acta
+\def\grl{\ref@jnl{Geophys.~Res.~Lett.}} % Geophysics Research Letters
+\def\jcp{\ref@jnl{J.~Chem.~Phys.}}      % Journal of Chemical Physics
+\def\jgr{\ref@jnl{J.~Geophys.~Res.}}    % Journal of Geophysics Research
+\def\jqsrt{\ref@jnl{J.~Quant.~Spec.~Radiat.~Transf.}}
+                % Journal of Quantitiative Spectroscopy and Radiative Transfer
+\def\memsai{\ref@jnl{Mem.~Soc.~Astron.~Italiana}}
+                % Mem. Societa Astronomica Italiana
+\def\nphysa{\ref@jnl{Nucl.~Phys.~A}}   % Nuclear Physics A
+\def\physrep{\ref@jnl{Phys.~Rep.}}   % Physics Reports
+\def\physscr{\ref@jnl{Phys.~Scr}}   % Physica Scripta
+\def\planss{\ref@jnl{Planet.~Space~Sci.}}   % Planetary Space Science
+\def\procspie{\ref@jnl{Proc.~SPIE}}   % Proceedings of the SPIE
+
+\let\astap=\aap
+\let\apjlett=\apjl
+\let\apjsupp=\apjs
+\let\applopt=\ao
+
+\def\ang{\AA}                           %Angstrom unit
+\def\degpoint{\mbox{$^\circ\mskip-7.0mu.\,$}}
+\def\halpha{\mbox{H$\alpha$}}
+\def\hbeta{\mbox{H$\beta$}}
+\def\hgamma{\mbox{H$\gamma$}}
+\def\kms{\,km~s$^{-1}$\xspace}      % note leading thinspace
+\def\lya{\mbox{Ly$\alpha$}\xspace}
+\def\lyb{\mbox{Ly$\beta$}\xspace}
+\def\lyc{\mbox{Ly$\gamma$}\xspace}
+\def\minpoint{\mbox{$'\mskip-4.7mu.\mskip0.8mu$}}
+\def\mv{\mbox{$m_{_V}$}}
+\def\Mv{\mbox{$M_{_V}$}}
+\def\peryr{\mbox{$\>\rm yr^{-1}$}}
+\def\secpoint{\mbox{$''\mskip-7.6mu.\,$}}
+\def\sqdeg{\mbox{${\rm deg}^2$}}
+\def\squig{\sim\!\!}
+\def\subsun{\mbox{$_{\normalsize\odot}$}}
+\def\deg{\hbox{$^\circ$}}
+\def\sun{\hbox{$\odot$}}
+\def\earth{\hbox{$\oplus$}}
+%\def\lesssim{\mathrel{\hbox{\rlap{\hbox{\lower4pt\hbox{$\sim$}}}\hbox{$<$}}}}
+%\def\gtrsim{\mathrel{\hbox{\rlap{\hbox{\lower4pt\hbox{$\sim$}}}\hbox{$>$}}}}
+\def\la{\mathrel{\hbox{\rlap{\hbox{\lower4pt\hbox{$\sim$}}}\hbox{$<$}}}}
+\def\ga{\mathrel{\hbox{\rlap{\hbox{\lower4pt\hbox{$\sim$}}}\hbox{$>$}}}}
+\def\sq{\hbox{\rlap{$\sqcap$}$\sqcup$}}
+\def\arcmin{\hbox{$^\prime$}}
+\def\arcsec{\hbox{$^{\prime\prime}$}}
+\def\fd{\hbox{$.\!\!^{\rm d}$}}
+\def\fh{\hbox{$.\!\!^{\rm h}$}}
+\def\fm{\hbox{$.\!\!^{\rm m}$}}
+\def\fs{\hbox{$.\!\!^{\rm s}$}}
+\def\fdg{\hbox{$.\!\!^\circ$}}
+\def\farcm{\hbox{$.\mkern-4mu^\prime$}}
+\def\farcs{\hbox{$.\!\!^{\prime\prime}$}}
+\def\fp{\hbox{$.\!\!^{\scriptscriptstyle\rm p}$}}
+\def\micron{\hbox{$\mu$m}}
+\def\case#1#2{\hbox{$\frac{#1}{#2}$}}
+\def\slantfrac#1#2{\hbox{$\,^#1\!/_#2$}}
+\def\onehalf{\slantfrac{1}{2}}
+\def\onethird{\slantfrac{1}{3}}
+\def\twothirds{\slantfrac{2}{3}}
+\def\onequarter{\slantfrac{1}{4}}
+\def\threequarters{\slantfrac{3}{4}}
+\def\ubvr{\hbox{$U\!BV\!R$}}            % UBVR system
+\def\ub{\hbox{$U\!-\!B$}}               % U-B
+\def\bv{\hbox{$B\!-\!V$}}               % B-V
+\def\vr{\hbox{$V\!-\!R$}}               % V-R
+\def\ur{\hbox{$U\!-\!R$}}               % U-R
+\def\jhk{\hbox{$J\!H\!K$}}              % JHK system
+\def\jh{\hbox{$J\!-\!H$}}               % J-H
+\def\hk{\hbox{$H\!-\!K$}}               % H-K
+\def\jk{\hbox{$J\!-\!K$}}               % J-K
+%\def\nodata{\multicolumn{1}{c}{$\cdots$}}
+\def\ion#1#2{#1~{\small\rm\@Roman{#2}}\relax}
+
