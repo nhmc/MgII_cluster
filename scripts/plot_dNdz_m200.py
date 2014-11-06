@@ -4,8 +4,8 @@ Make dN/dz plot comparing different mass cuts
 
 if 1:
 
-    outnames = ['mass_13.6-14.0_erphotz_rho_26.0/rho_dNdz_clus.sav',
-                'mass_14.0-14.4_erphotz_rho_26.0/rho_dNdz_clus.sav',
+    outnames = ['mass_13.6-14.1_erphotz_rho_26.0/rho_dNdz_clus.sav',
+                'mass_14.1-14.4_erphotz_rho_26.0/rho_dNdz_clus.sav',
                 'mass_14.4-20.0_erphotz_rho_26.0/rho_dNdz_clus.sav',]
 
     rhovals = []
@@ -17,7 +17,7 @@ if 1:
     #fig3.subplots_adjust(left=0.16)
     fig3.clf()
     ax = plt.gca()
-    ax.set_title(run_id)
+    ax.set_title(outnames[0])
 
     ewbins = Bins([0.6, 5.0])
     labels = ['13.6-14', '14-14.4', '14.4+']

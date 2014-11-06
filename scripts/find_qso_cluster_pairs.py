@@ -279,6 +279,7 @@ def read_redmapper():
     # in solar masses, conversion from Rykoff 2013 appendix B.
     m200 = m200_from_richness(d['LAMBDA_CHISQ'])
 
+
     d1 = np.rec.fromarrays([d.RA, d.DEC, z, zer,
                             d.LAMBDA_CHISQ, d.MEM_MATCH_ID, rlos.value, m200],
                            names='ra,dec,z,zer,richness,id,rlos,m200')
@@ -477,24 +478,54 @@ if CALC:
         pairs = pairs2
 
 if CALC:
-    # write out a table for Sebastian with
+    # write out a table for Sebastian
 
     # nabs
-
+    Wr = []
+    nabs = []
+    zabs = []
+    for i,p in enumerate(pairs['abid']):
+        if not i % 100000:
+            print i
+        c0 = p > -1
+        n = np.sum(c0)
+        nabs.append(n)
+        if n == 0:
+            Wr.append(-1)
+            zabs.append(-1)
+            continue
+        if n == 1:
+            c1 = ab['MgII']['abid'] == p[c0]
+            Wr.append(ab['MgII'][c1]['Wr'][0])
+            zabs.append(ab['MgII'][c1]['z'][0])
+            continue
+        if n > 1:
+            c1 = np.in1d(ab['MgII']['abid'], p[c0])
+            ind = np.argmax(ab['MgII'][c1]['Wr'])
+            Wr.append(ab['MgII'][c1]['Wr'][ind])
+            zabs.append(ab['MgII'][c1]['z'][ind])
+            continue
+    
     # Wr (max)
 
     # cluster mass
 
-    # m200
+    m200 = []
+    for i,cid in enumerate(pairs['cid']):
+        if not i % 100000:  print i
+        ind = iclus_from_id[cid]
+        m200.append(clus['m200'][ind])
 
-    # zpath min
 
-    # zpath max
+    m200 = np.array(m200)
+    Wr = np.array(Wr)
+    nabs = np.array(nabs)
+    zabs = np.array(zabs)
 
-    # cz
-
-    pass
-
+    pairs1 = rec_append_fields(pairs, ('m200','Wr2796','nMgII','zMgII'),
+                               [m200,Wr,nabs,zabs])
+    pairs2 = rec_drop_fields(pairs1, ['abid'])
+    Table(pairs2).write('for_sebastian.fits')
 
 if CALC:
     # now find which pairs are in each rho bin.
