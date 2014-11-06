@@ -1,0 +1,224 @@
+% mn2esample.tex
+%
+% v2.1 released 22nd May 2002 (G. Hutton)
+%
+% The mnsample.tex file has been amended to highlight
+% the proper use of LaTeX2e code with the class file
+% and using natbib cross-referencing. These changes
+% do not reflect the original paper by A. V. Raveendran.
+%
+% Previous versions of this sample document were
+% compatible with the LaTeX 2.09 style file mn.sty
+% v1.2 released 5th September 1994 (M. Reed)
+% v1.1 released 18th July 1994
+% v1.0 released 28th January 1994
+
+\documentclass[useAMS,usenatbib]{mn2e}
+\usepackage{amsmath,graphicx,xspace,hyperref,url,acronym,aas_macros}
+
+
+% If your system does not have the AMS fonts version 2.0 installed, then
+% remove the useAMS option.
+%
+% useAMS allows you to obtain upright Greek characters.
+% e.g. \umu, \upi etc.  See the section on "Upright Greek characters" in
+% this guide for further information.
+%
+% If you are using AMS 2.0 fonts, bold math letters/symbols are available
+% at a larger range of sizes for NFSS release 1 and 2 (using \boldmath or
+% preferably \bmath).
+%
+% The usenatbib command allows the use of Patrick Daly's natbib.sty for
+% cross-referencing.
+%
+% If you wish to typeset the paper in Times font (if you do not have the
+% PostScript Type 1 Computer Modern fonts you will need to do this to get
+% smoother fonts in a PDF file) then uncomment the next line
+% \usepackage{Times}
+
+%%%%% AUTHORS - PLACE YOUR OWN MACROS HERE %%%%%
+% Macros
+\newcommand{\mgii}{Mg~{\sc ii}\xspace}
+
+\newcommand{\ntcomment}[1]{\texttt{\\ \noindent[NT: #1]}}
+
+
+% Acronyms
+\acrodef{los}[LOS]{line-of-sight}
+\acrodef{lss}[LSS]{large scale structure}
+\acrodef{sdss}[SDSS]{Sloan Digital Sky Survey}
+\acrodef{redmapper}[redMaPPer]{red-sequence Matched-filter Probabilistic Percolation}
+\acrodef{qso}[QSO]{quasi-stellar object}
+\acrodef{snr}[SNR]{signal-to-noise ratio}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title[The incidence of \mgii\ as a function of cluster masses]{Cold
+  gas within and around galaxy clusters: The incidence of \mgii\ as a
+  function of cluster masses \ntcomment{better title TBD}}
+\author[Crighton, Tejos \& L\'opez]{
+\parbox[t]{\textwidth}{
+\vspace{-1.0cm} 
+Neil H. Crighton$^{1}$\thanks{E-mail: \href{mailto:neilcrighton@gmail.com}{neilcrighton@gmail.com}},
+Nicolas Tejos$^{2}$ and
+Sebasti\'an L\'opez$^{3}$
+}
+\vspace*{6pt} \\ 
+$^{1}$ Centre for Astrophysics and Supercomputing, Swinburne University of Technology, Hawthorn, Victoria 3122, Australia\\
+$^{2}$ Department of Astronomy and Astrophysics, UCO/Lick Observatory, University of California, 1156 High Street, Santa Cruz, CA 95064, USA\\
+$^{3}$ Departamento de Astronom\'ia, Universidad de Chile, Casilla 36-D, Santiago, Chile\\
+\vspace*{-0.5cm}}
+
+\begin{document}
+
+\date{Draft v1.0}
+
+\pagerange{\pageref{firstpage}--\pageref{lastpage}} \pubyear{2014}
+
+\maketitle
+
+\label{firstpage}
+
+\begin{abstract}
+We investigate the incidence of \mgii\ absorption line systems in
+galaxy clusters as a function of cluster mass. Our results are....
+\end{abstract}
+
+\begin{keywords}
+--intergalactic medium --quasars: absorption lines --galaxies: clusters:
+intracluster medium --large scale structure of the Universe --galaxies:
+evolution
+\end{keywords}
+
+\section{Introduction}
+\acresetall
+\ntcomment{brief introduction}
+
+\section{Data}
+
+\subsection{Galaxy clusters}
+We use the \ac{redmapper} catalog \citep{Rykoff2014} ...
+\ntcomment{\\
+- Description of the \ac{redmapper} cluster catalog\\
+- Explain why \ac{redmapper}: advantages\\
+- Clusters centers as probabilities\\
+- Cluster members as probabilities\\
+- Cluster Richness corrected by incompleteness\\
+- Photometric uncertainties are small\\
+- Some spectroscopic redshift exists\\
+- Adopted richness--mass relationship\\
+- Explain completeness and purity\\}
+
+\subsection{\mgii absorption line systems}
+We use the \mgii\ catalog published by  ...
+
+\ntcomment{\\
+- Description of the \mgii\ catalog\\
+- Explain why this catalog in particular: advantages\\
+- Explain the main observables relevant for this study: z, EW, Vdisp? \\
+- Explain why completeness level issues, and why these do not affect our analysis.}
+
+\section{Data analysis and results}
+\subsection{Cross-match between clusters and \mgii\ systems}
+\ntcomment{\\
+- Show plots of redshift overlap\\
+- Explain subsample of the cluster catalog used in this analysis\\
+- Explain subsample of the \mgii\ catalog used in this analysis\\
+- Justify the maximum scale adopted (~40 Mpc? use as motivation the mean distance between clusters?)
+- Define redshift path per cluster\\
+- Define hits\\
+}
+\input{figs/fig1.tex}
+
+\subsection{The incidence \mgii\ in clusters}
+\ntcomment{\\
+- Define incidence in clusters, $dN/dz$\\
+- Define incidence as a function of co-moving separation\\
+- Define incidence as a function of virial radii; emphasize why is important to scale by virial mass: massive clusters are larger. Dark matter haloes are expected to show self-similarity, others)\\
+- Plot these two quantities for our full samples in both co-moving and r200 separations.\\
+- Mention whether these two seem consistent with each other but leave interpretation to the Discussion section. If no qualitative differences, stick to r200.}
+
+\input{figs/fig2.tex}
+
+\subsection{The incidence \mgii\ in clusters as a function of cluster mass}
+\ntcomment{\\
+- Define cluster mass bins; explain why we chose these particular bins.\\
+- Main result of the paper: incidence as a function of cluster masses\\
+- Plot incidence as a function of cluster masses, in r200 (or both in case is worth it)}
+
+
+
+\subsection{Physical model}
+\ntcomment{\\ 
+- Explain our model to fit the results\\ 
+- Mention whether our model consistent with the known masses of the
+clusters in each mass bin?  (either result will be very
+interesting) but leave full interpretation to Discussion section\\ }
+
+\input{figs/fig3.tex}
+
+\section{Discussion}
+\ntcomment{\\
+- General implications of results, focusing on the main result\\
+- Although we focused on the larger scales, we can speculate now on our reported results on scales < 1 Mpc (subject to large statistical uncertainties).\\ 
+- Why is important to have cold gas in clusters\\
+- Are the observed trends consistent with expectations?\\
+}
+
+\subsection{Comparison to previous work}
+\ntcomment{\\
+- Lopez+2008\\
+- Zhu+14\\
+- Gauthier+14\\
+- etc. \\
+- emphasize why our experiment is different (we focus on the most massive haloes in the universe and we know the masses of the clusters very well)\\
+- focus on agreements and disagreements\\
+}
+
+\subsection{Future prospects [??]}
+\ntcomment{\\
+- What can be done to extend this work?\\
+- Is it worth to aim for less massive groups? Is there evidence for a different behaviour in these lower mass haloes?\\
+- Mention work on the smaller scales that we will do ?\\
+- Address different galaxy populations (star-forming, non-star-forming)\\
+- Split by \mgii\ EW for a fixed cluster mass\\
+- Investigate properties of clusters showing and not showing \mgii.\\
+- Put limits on the covering fraction of \mgii inside galaxy clusters [this seems important, should we address this in this paper rather than later? We could to it for the strongest absorbers without worrying much about incompleteness].\\
+}
+
+
+
+\section{Summary}
+\ntcomment{Brief summary}
+
+\section*{Acknowledgments}
+
+We thank contributors to SciPy\footnote{\url{http://www.scipy.org}},
+Matplotlib\footnote{\url{http://www.matplotlib.sourceforge.net}},
+Astropy\footnote{\url{http://www.astropy.org}\citep{AstropyCollaboration2013}},
+and the Python programming
+language\footnote{\url{http://www.python.org}}; the free and
+open-source community; and the NASA Astrophysics Data
+System\footnote{\url{http://adswww.harvard.edu}} for software and
+services.
+
+Add \ac{sdss} thanks.
+
+N.H.C. acknowledges...; N.T. acknowledges...; S.L. acknowledges...
+
+\bibliographystyle{mn2e_trunc8.bst}
+\bibliography{/home/ntejos/lit/bib/IGM}
+
+\appendix
+
+\section{Check for systematic effects}
+\ntcomment{\\ 
+-Plot QSO properties as a function of cluster masses, and transverse
+separation in the same way the analysis was presented.\\
+-Plot properties of clusters (mass distribution, redshift distribution)
+with \mgii\ versus those without ?}
+\input{figs/fig_appendix.tex}
+
+
+\bsp
+\label{lastpage}
+\end{document}
