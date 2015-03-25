@@ -14,7 +14,7 @@
 % v1.0 released 28th January 1994
 
 \documentclass[useAMS,usenatbib]{mn2e}
-\usepackage{amsmath,graphicx,xspace,hyperref,url,acronym,aas_macros}
+\usepackage{amsmath,graphicx,xspace,hyperref,url,acronym,aas_macros,amssymb}
 
 
 % If your system does not have the AMS fonts version 2.0 installed, then
@@ -39,6 +39,7 @@
 %%%%% AUTHORS - PLACE YOUR OWN MACROS HERE %%%%%
 % Macros
 \newcommand{\mgii}{Mg~{\sc ii}\xspace}
+\newcommand{\feii}{Fe~{\sc ii}\xspace}
 
 \newcommand{\ntcomment}[1]{\texttt{\\ \noindent[NT: #1]}}
 
@@ -93,10 +94,22 @@ evolution
 \acresetall
 \ntcomment{brief introduction}
 
-\section{Data}
 
-\subsection{Galaxy clusters}
-We use the \ac{redmapper} catalog \citep{Rykoff2014} ...
+\section{Data}\label{sec:data}
+
+\subsection{Galaxy clusters}\label{sec:data:clusters}
+
+We use data from the \ac{redmapper} catalog published by
+\citet{Rykoff2014} from SDSS DR8 data (refs). The \ac{redmapper}
+catalog is mainly based on optical photometry through the red sequence
+technique (refs).
+
+The catalog comes from a fully automatized algorithm briefly described
+as follows:
+
+(i) 
+
+
 \ntcomment{\\
 - Description of the \ac{redmapper} cluster catalog\\
 - Explain why \ac{redmapper}: advantages\\
@@ -108,14 +121,87 @@ We use the \ac{redmapper} catalog \citep{Rykoff2014} ...
 - Adopted richness--mass relationship\\
 - Explain completeness and purity\\}
 
-\subsection{\mgii absorption line systems}
-We use the \mgii\ catalog published by  ...
 
-\ntcomment{\\
-- Description of the \mgii\ catalog\\
-- Explain why this catalog in particular: advantages\\
-- Explain the main observables relevant for this study: z, EW, Vdisp? \\
-- Explain why completeness level issues, and why these do not affect our analysis.}
+\subsection{\mgii\ absorption line systems}\label{sec:data:mgii}
+
+We used data from the JHU-SDSS metal absorption line catalog published
+by \citet{Zhu2013} from SDSS DR7 \ac{qso} data \citep{Schneider2010,
+  Hewett2010}. This catalog provides redshift, rest-frame equivalent
+widths and velocity dispersion (among other quantities) of XXX
+\mgii\ $\lambda\lambda 2796, 2803$ systems found in the spectra of XXX
+\acp{qso} from the \ac{sdss} DR7 and DR9. The catalog also gives the
+same information for the corresponding \mgii $\lambda 2853$ and \feii
+$\lambda 2344$, $\lambda 2383$, $\lambda 2586$, and $\lambda 2600$. The
+catalog comes from a fully automatized algorithm briefly described as
+follows:
+
+\begin{itemize}
+\item (i) Each QSO continuum is fitted by a set of $12$ non-negative
+eigen-spectra following the nonnegative matrix factorization technique
+\citep[NMF;][]{Lee1999;Blanton2007}, and normalized accordingly.
+
+\item (ii) Median filters of $\sim 8$ and $\sim 4$ times the expected
+\mgii~spectral extent is applied to the resulting normalized spectrum
+in step (i), in order remove intermediate and small scales
+fluctuations, respectively. Each QSO continuum is re-normalized
+accordingly.
+
+\item (iii) For each normalized QSO, a search window for \mgii
+  absorption lines is defined between redshifts $(1+z_{\rm
+    QSO})\frac{\lambda_{\rm CIV}}{\lambda_{\rm MgII}} - 0.08 \le z \le
+  z_{\rm QSO} - 0.04$ (i.e. between the \ion{C}{4} and the \ion{Mg}{2}
+  broad emission lines), excluding spectral zones associated with sky
+  emission lines (e.g. \ion{O}{1} and OH) and Galactic absorption
+  (e.g. \ion{Ca}{2} and Na~D).
+
+\item (iv) \mgii candidates are looked for by fitting a multi-line
+  model of the \mgii doublet plus four strong \ion{Fe}{2} lines
+  ($\lambda 2344$,$\lambda 2383$,$\lambda 2586$,$\lambda 2600$). Still
+  the presence of \ion{Fe}{2} is not a requirement.
+
+\item (v) For each of these candidates, two Gaussian to each member of
+  the \mgii doublet are fitted (allowing them to have different
+  amplitudes and positions), and those candidates whose doublet
+  separations are off by $1 \AA$ from the expectation, are discarded.
+
+\item (vi) The remaining candidates are stored and ranked according to
+  signal-to-noise criteria based for the \mgii and \ion{Fe}{2}
+  lines. Higher priority is given to candidates showing as \mgii {\it
+    and} all four \ion{Fe}{2} lines at $SNR(FeII)>2$, than those
+  showing only as \mgii.\footnote{We note that regions around the QSO
+    \ion{C}{3} emission line are treated slightly different
+    \citep[see][for further details]{Zhu2013}.}
+
+\item (vii) A final list of `robust' \mgii systems is given by those
+  satisfying $SNR(MgII,2796)>4$, $SNR(MgII,2803)>2$, and their
+  properties measured and stored.
+
+\end{itemize}
+
+
+We chose this catalog mostly because it is the largest currently
+available, and that it comes the SDSS footprint where the cluster
+catalog used in this paper also comes from \ref{sec:data:clusters}. We
+also emphasize that the JHU-SDSS has a very well understood selection
+function. The catalog is about $\lesssim XX\%$ complete at $W_r \gtrsim
+2$~\AA, and $\lesssim 70\%$ at $W_r \gtrsim 1$~\AA (see their figure 7
+and 9).
+
+In the present paper, we will focus mostly on \mgii systems having $W_r
+\gtrsim 1$~\AA at redshifts $XX\le z \le XX$, for a total of $XXX$
+systems. Their redshift distribution is shown as the .... line in
+\ref{fig:fig1}. The completeness level in this case is not
+significantly different than the overall catalog (see their figure
+7). \ntcomment{Are we going to use those below below CIV emission?; if
+  so, say something about it (higher contamination rate).} In any case,
+the completeness level is not an issue to our analysis because .... ,
+
+The main observables for our present work are redshift ($z$),
+equivalent width of the $\lambda2796$ line ($W_r^{2796}$), and velocity
+dispersion ($\sigma_v^{2796}$). We note that the majority of the \mgii
+lines in the JHU-SDSS catalog are saturated making $W_r^{2796}$ and
+$\sigma_v^{2796}$ correlated (see their figure 6).
+
 
 \section{Data analysis and results}
 \subsection{Cross-match between clusters and \mgii\ systems}
